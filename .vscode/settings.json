@@ -7,6 +7,7 @@
   "[rust]": {
     "editor.defaultFormatter": "rust-lang.rust-analyzer"
   },
+  "rust-analyzer.check.command": "clippy",
   "[jsonc]": {
     "editor.defaultFormatter": "vscode.json-language-features"
   },
