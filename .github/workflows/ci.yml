@@ -1,0 +1,61 @@
+name: CI
+
+on: [pull_request, push]
+
+env:
+  RUSTFLAGS: -Dwarnings
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Apt update on Ubuntu
+        run: sudo apt update
+      - name: Install dependencies on Ubuntu
+        run: echo "CHANGE COMMAND HERE TO INSTALL DEPENDENCIES"
+      - name: Run cargo fmt --all -- --check
+        run: cargo fmt --all -- --check
+      - name: Run cargo clippy
+        run: cargo clippy
+      - name: Run cargo test
+        run: cargo test
+
+  build-ubuntu:
+    name: Build on Ubuntu
+    strategy:
+      matrix:
+        rust: [stable]
+        runs-on:
+          - ubuntu-latest
+    runs-on: ${{ matrix.runs-on }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Apt update on Ubuntu
+        run: sudo apt update
+      - name: Install dependencies on Ubuntu
+        run: echo "CHANGE COMMAND HERE TO INSTALL DEPENDENCIES"
+      - name: Update toolchain
+        run: rustup update --no-self-update ${{ matrix.rust }} && rustup default ${{ matrix.rust }}
+      - name: Run cargo build --release
+        run: cargo build --release
+
+  # build-others:
+  #   name: Build on other platforms
+  #   strategy:
+  #     matrix:
+  #       rust: [stable]
+  #       runs-on:
+  #         - windows-latest
+  #         - macos-latest
+  #   runs-on: ${{ matrix.runs-on }}
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
+  #     - name: Update toolchain
+  #       run: rustup update --no-self-update ${{ matrix.rust }} && rustup default ${{ matrix.rust }}
+  #     - name: Run cargo build --release
+  #       run: cargo build --release
