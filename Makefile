@@ -1,4 +1,5 @@
 PROJECT_NAME := rust-template
+TARGET := arm-unknown-linux-gnueabi
 
 target/debug/${PROJECT_NAME}: src/main.rs
 	cargo build
@@ -6,8 +7,13 @@ target/debug/${PROJECT_NAME}: src/main.rs
 target/release/${PROJECT_NAME}: src/main.rs
 	cargo build $(RUSTPROFILE)
 
-release: target/release/rust-template
+release: target/release/${PROJECT_NAME}
 release: RUSTPROFILE := --release
+
+/target/${TARGET}/release/${PROJECT_NAME}: src/main.rs
+	cross build --target ${TARGET} --release
+
+cross: /target/${TARGET}/release/${PROJECT_NAME}
 
 .PHONY: clean
 clean:
