@@ -1,0 +1,5 @@
+[build]
+default-target = "arm-unknown-linux-gnueabi" # e.g. Raspberry Pi Zero W
+
+[target.arm-unknown-linux-gnueabi]
+dockerfile = "cross/Dockerfile.arm-unknown-linux-gnueabi"
