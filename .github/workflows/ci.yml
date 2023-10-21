@@ -44,8 +44,8 @@ jobs:
         run: cargo build --release
       - name: Setup cross compilation environment
         run: make setup
-      - name: Cross compile
-        run: make cross
+      - name: Cross compile (aarch64)
+        run: make cross TARGET=aarch64-unknown-linux-gnu
 
   # build-others:
   #   name: Build on other platforms
