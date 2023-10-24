@@ -8,10 +8,19 @@ CROSS_REPO_URL="https://github.com/cross-rs/cross.git"
 CUSTOM_CROSS_REPO_URL="https://github.com/z80020100/cross.git"
 CUSTOM_CROSS_BRANCH="aarch64_host_platform_custom_image"
 
+# Install dependencies
+function install_dependencies() {
+  sudo apt-get update
+  sudo apt-get install -y \
+    build-essential \
+    curl \
+    git
+}
+
 # Install Rust
 function install_rust() {
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-  source $HOME/.cargo/env
+  . $HOME/.cargo/env
 }
 
 # Install Docker
@@ -42,6 +51,7 @@ function install_custom_cross() {
 }
 
 function main() {
+  install_dependencies
   required_cmds=(
     "$CARGO_CMD"
     "$DOCKER_CMD"

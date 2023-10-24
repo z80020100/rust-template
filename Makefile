@@ -21,5 +21,5 @@ clean:
 
 .PHONY: setup
 setup:
-	@echo "Setup Rust and cross compilation environment"
-	@scripts/envsetup.sh
+	@echo "Enter the following command to setup Rust and cross compilation environment"
+	@echo "source scripts/envsetup.sh"
