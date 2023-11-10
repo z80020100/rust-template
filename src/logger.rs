@@ -75,8 +75,9 @@ pub fn init() -> non_blocking::WorkerGuard {
         .init();
 
     info!(
-        "Logger initialized: console level = {}, file level = {}",
-        console_level, file_level
+        console_level = console_level.to_string(),
+        file_level = file_level.to_string(),
+        "Logger initialized:"
     );
 
     // https://docs.rs/tracing-appender/latest/tracing_appender/non_blocking/struct.WorkerGuard.html
