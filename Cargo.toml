@@ -3,6 +3,14 @@ name = "rust-template"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "rust_template"
+path = "src/lib.rs"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+time = "0.3.30"
+tracing = "0.1.40"
+tracing-appender = "0.2.2"
+tracing-subscriber = { version = "0.3.17", features = ["local-time"] }
