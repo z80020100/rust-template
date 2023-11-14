@@ -6,7 +6,8 @@ use std::path::Path;
 use time::{format_description, UtcOffset};
 use tracing_subscriber::fmt::time::OffsetTime;
 
-use tracing::{info, Level};
+use tracing::Level;
+pub use tracing::{debug, error, info, trace, warn};
 use tracing_appender::{non_blocking, rolling};
 use tracing_subscriber::{
     filter::{filter_fn, LevelFilter},

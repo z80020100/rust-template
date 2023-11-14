@@ -1,9 +1,8 @@
 // crates.io
 use tokio::runtime;
-use tracing::{debug, error, info, trace, warn};
 
 // Custom library
-use rust_template::logger;
+use rust_template::logger::{self, *}; // debug, error, info, trace, warn
 
 async fn main_async() {
     trace!("Hello, world!");
