@@ -3,6 +3,7 @@ use tokio::runtime;
 
 // Custom library
 use rust_template::logger::{self, *}; // debug, error, info, trace, warn
+use rust_template::threads;
 
 async fn main_async() {
     trace!("Hello, world!");
@@ -10,6 +11,7 @@ async fn main_async() {
     info!("Hello, world!");
     warn!("Hello, world!");
     error!("Hello, world!");
+    threads::start_threads().await;
 }
 
 fn main() {
