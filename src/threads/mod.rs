@@ -3,6 +3,7 @@ use std::future::Future;
 
 // crates.io
 use parse_display::Display;
+use tokio::sync::mpsc;
 use tokio::task::JoinSet;
 
 // This library
@@ -37,8 +38,13 @@ fn spawn_thread<F, R>(
 
 pub async fn start_threads() {
     let mut join_set = JoinSet::new();
-    spawn_thread(&mut join_set, ThreadName::Consumer, consumer::start());
-    spawn_thread(&mut join_set, ThreadName::Producer, producer::start());
+    let (sender, receiver) = mpsc::unbounded_channel::<i32>();
+    spawn_thread(
+        &mut join_set,
+        ThreadName::Consumer,
+        consumer::start(receiver),
+    );
+    spawn_thread(&mut join_set, ThreadName::Producer, producer::start(sender));
     while let Some(join_ret) = join_set.join_next().await {
         match join_ret {
             Ok(ret) => info!("Thread return value: {:?}", ret),
