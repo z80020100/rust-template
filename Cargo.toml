@@ -11,6 +11,7 @@ path = "src/lib.rs"
 
 [dependencies]
 parse-display = "0.8.2"
+thiserror = "1.0.50"
 time = "0.3.30"
 tokio = { version = "1.34.0", features = ["full"] }
 tracing = "0.1.40"
