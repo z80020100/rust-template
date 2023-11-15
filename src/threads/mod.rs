@@ -3,7 +3,7 @@ use std::future::Future;
 
 // crates.io
 use parse_display::Display;
-use tokio::sync::mpsc;
+use tokio::sync::{broadcast, mpsc};
 use tokio::task::JoinSet;
 
 // This library
@@ -18,6 +18,11 @@ mod producer;
 pub enum ThreadName {
     Consumer,
     Producer,
+}
+
+#[derive(Clone, Display)]
+pub enum ThreadCommand {
+    Stop,
 }
 
 fn spawn_thread<F, R>(
@@ -36,19 +41,29 @@ fn spawn_thread<F, R>(
     });
 }
 
-pub async fn start_threads() {
+pub async fn start_threads(cmd_sender: broadcast::Sender<ThreadCommand>) {
     let mut join_set = JoinSet::new();
-    let (sender, receiver) = mpsc::unbounded_channel::<i32>();
+    let (data_sender, data_receiver) = mpsc::unbounded_channel::<i32>();
     spawn_thread(
         &mut join_set,
         ThreadName::Consumer,
-        consumer::start(receiver),
+        consumer::start(cmd_sender.subscribe(), data_receiver),
     );
-    spawn_thread(&mut join_set, ThreadName::Producer, producer::start(sender));
+    spawn_thread(
+        &mut join_set,
+        ThreadName::Producer,
+        producer::start(cmd_sender.subscribe(), data_sender),
+    );
     while let Some(join_ret) = join_set.join_next().await {
         match join_ret {
             Ok(ret) => info!("Thread return value: {:?}", ret),
             Err(err) => info!("Thread join error: {:?}", err),
         }
+    }
+}
+
+pub async fn stop_threads(cmd_sender: broadcast::Sender<ThreadCommand>) {
+    if let Err(err) = cmd_sender.send(ThreadCommand::Stop) {
+        error!("Send error: {}", err);
     }
 }
