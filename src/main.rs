@@ -1,8 +1,11 @@
 // crates.io
 use tokio::runtime;
+use tokio::sync::broadcast;
 
 // Custom library
+use rust_template::constant;
 use rust_template::logger::{self, *}; // debug, error, info, trace, warn
+use rust_template::threads::{self, *};
 
 async fn main_async() {
     trace!("Hello, world!");
@@ -10,6 +13,8 @@ async fn main_async() {
     info!("Hello, world!");
     warn!("Hello, world!");
     error!("Hello, world!");
+    let (cmd_sender, _) = broadcast::channel::<ThreadCommand>(constant::BROADCAST_CHANNEL_CAPACITY);
+    threads::start_threads(cmd_sender).await;
 }
 
 fn main() {
