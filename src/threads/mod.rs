@@ -12,12 +12,14 @@ use crate::logger::*; // debug, error, info, trace, warn
 // Threads
 mod consumer;
 mod producer;
+mod signal_handler;
 
 #[derive(Clone, Display)]
 #[display("{}_thread", style = "snake_case")]
 pub enum ThreadName {
     Consumer,
     Producer,
+    SignalHandler,
 }
 
 #[derive(Clone, Display)]
@@ -53,6 +55,11 @@ pub async fn start_threads(cmd_sender: broadcast::Sender<ThreadCommand>) {
         &mut join_set,
         ThreadName::Producer,
         producer::start(cmd_sender.subscribe(), data_sender),
+    );
+    spawn_thread(
+        &mut join_set,
+        ThreadName::SignalHandler,
+        signal_handler::start(cmd_sender.subscribe(), cmd_sender.clone()),
     );
     while let Some(join_ret) = join_set.join_next().await {
         match join_ret {

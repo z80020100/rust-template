@@ -24,9 +24,12 @@ fn main() {
      * This will ensure that the guard will be dropped during an unwinding or when main exits successfully
      */
     let _ground = logger::init();
+    let app_info = format!("{} v{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+    info!("Start {}", app_info);
     runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
         .unwrap()
         .block_on(main_async());
+    info!("Exit {}", app_info);
 }
