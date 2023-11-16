@@ -1,6 +1,7 @@
 // crates.io
 use thiserror::Error;
 use tokio::sync::{broadcast, mpsc};
+use tokio::task::JoinError;
 
 // This library
 use crate::threads::ThreadCommand;
@@ -20,4 +21,6 @@ pub enum ErrorCode {
     MpmcChanThrCmdSendFail(#[from] broadcast::error::SendError<ThreadCommand>),
     #[error("Failed to receive thread command (broadcast): {0}")]
     MpmcChanRecvFail(#[from] broadcast::error::RecvError),
+    #[error("Failed to join thread: {0}")]
+    ThreadJoinFail(#[from] JoinError),
 }

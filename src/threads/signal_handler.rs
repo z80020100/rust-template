@@ -20,19 +20,16 @@ pub async fn start(
     while loop_running {
         tokio::select! {
             Some(_) = sighup_stream.recv() => {
-                error_code = ErrorCode::Success;
                 warn!("Receive SIGHUP");
-                super::stop_threads(cmd_sender.clone()).await;
+                error_code = super::stop_threads(cmd_sender.clone()).await;
             }
             Some(_) = sigint_stream.recv() => {
-                error_code = ErrorCode::Success;
                 warn!("Receive SIGINT");
-                super::stop_threads(cmd_sender.clone()).await;
+                error_code = super::stop_threads(cmd_sender.clone()).await;
             }
             Some(_) = sigterm_stream.recv() => {
-                error_code = ErrorCode::Success;
                 warn!("Receive SIGTERM");
-                super::stop_threads(cmd_sender.clone()).await;
+                error_code = super::stop_threads(cmd_sender.clone()).await;
             }
             cmd = cmd_receiver.recv() => {
                 match cmd_handler(cmd) {
