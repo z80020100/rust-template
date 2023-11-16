@@ -66,7 +66,6 @@ pub async fn start_threads(cmd_sender: broadcast::Sender<ThreadCommand>) -> Erro
     while let Some(join_ret) = join_set.join_next().await {
         match join_ret {
             Ok(ret) => {
-                info!("Thread return: {:?}", ret);
                 error_code = ret;
             }
             Err(err) => {
@@ -74,6 +73,14 @@ pub async fn start_threads(cmd_sender: broadcast::Sender<ThreadCommand>) -> Erro
                 error!("{}", error_code);
                 break;
             }
+        }
+        if error_code != ErrorCode::Success {
+            error!(
+                "One of threads returned error: {} {{ {:#?} }}",
+                error_code.as_u8(),
+                error_code
+            );
+            _ = stop_threads(cmd_sender.clone()).await;
         }
     }
     error_code

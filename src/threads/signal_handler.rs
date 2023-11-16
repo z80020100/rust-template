@@ -12,7 +12,7 @@ pub async fn start(
     mut cmd_receiver: broadcast::Receiver<ThreadCommand>,
     cmd_sender: broadcast::Sender<ThreadCommand>,
 ) -> ErrorCode {
-    let mut error_code = ErrorCode::Undefined;
+    let mut error_code = ErrorCode::Success;
     let mut sighup_stream = signal(SignalKind::hangup()).unwrap();
     let mut sigint_stream = signal(SignalKind::interrupt()).unwrap();
     let mut sigterm_stream = signal(SignalKind::terminate()).unwrap();
@@ -22,14 +22,17 @@ pub async fn start(
             Some(_) = sighup_stream.recv() => {
                 warn!("Receive SIGHUP");
                 error_code = super::stop_threads(cmd_sender.clone()).await;
+                loop_running = false;
             }
             Some(_) = sigint_stream.recv() => {
                 warn!("Receive SIGINT");
                 error_code = super::stop_threads(cmd_sender.clone()).await;
+                loop_running = false;
             }
             Some(_) = sigterm_stream.recv() => {
                 warn!("Receive SIGTERM");
                 error_code = super::stop_threads(cmd_sender.clone()).await;
+                loop_running = false;
             }
             cmd = cmd_receiver.recv() => {
                 match cmd_handler(cmd) {
