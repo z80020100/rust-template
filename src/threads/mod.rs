@@ -22,7 +22,7 @@ pub enum ThreadName {
     SignalHandler,
 }
 
-#[derive(Clone, Display)]
+#[derive(Clone, Debug, Display)]
 pub enum ThreadCommand {
     Stop,
 }
