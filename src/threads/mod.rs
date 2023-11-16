@@ -87,7 +87,7 @@ pub async fn start_threads(cmd_sender: broadcast::Sender<ThreadCommand>) -> Erro
 }
 
 pub async fn stop_threads(cmd_sender: broadcast::Sender<ThreadCommand>) -> ErrorCode {
-    let error_code = match cmd_sender.send(ThreadCommand::Stop) {
+    match cmd_sender.send(ThreadCommand::Stop) {
         Ok(_) => {
             info!("Send command: {}", ThreadCommand::Stop);
             ErrorCode::Success
@@ -97,6 +97,5 @@ pub async fn stop_threads(cmd_sender: broadcast::Sender<ThreadCommand>) -> Error
             error!("{}", err_code);
             err_code
         }
-    };
-    error_code
+    }
 }
