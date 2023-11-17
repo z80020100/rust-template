@@ -7,6 +7,7 @@ use tokio::sync::{broadcast, mpsc};
 use tokio::task::JoinSet;
 
 // This library
+use crate::error::ErrorCode;
 use crate::logger::*; // debug, error, info, trace, warn
 
 // Threads
@@ -22,7 +23,7 @@ pub enum ThreadName {
     SignalHandler,
 }
 
-#[derive(Clone, Display)]
+#[derive(Clone, Debug, Display)]
 pub enum ThreadCommand {
     Stop,
 }
@@ -43,7 +44,8 @@ fn spawn_thread<F, R>(
     });
 }
 
-pub async fn start_threads(cmd_sender: broadcast::Sender<ThreadCommand>) {
+pub async fn start_threads(cmd_sender: broadcast::Sender<ThreadCommand>) -> ErrorCode {
+    let mut error_code = ErrorCode::Undefined;
     let mut join_set = JoinSet::new();
     let (data_sender, data_receiver) = mpsc::unbounded_channel::<i32>();
     spawn_thread(
@@ -63,14 +65,37 @@ pub async fn start_threads(cmd_sender: broadcast::Sender<ThreadCommand>) {
     );
     while let Some(join_ret) = join_set.join_next().await {
         match join_ret {
-            Ok(ret) => info!("Thread return value: {:?}", ret),
-            Err(err) => info!("Thread join error: {:?}", err),
+            Ok(ret) => {
+                error_code = ret;
+            }
+            Err(err) => {
+                error_code = ErrorCode::ThreadJoinFail(err);
+                error!("{}", error_code);
+                break;
+            }
+        }
+        if error_code != ErrorCode::Success {
+            error!(
+                "One of threads returned error: {} {{ {:#?} }}",
+                error_code.as_u8(),
+                error_code
+            );
+            _ = stop_threads(cmd_sender.clone()).await;
         }
     }
+    error_code
 }
 
-pub async fn stop_threads(cmd_sender: broadcast::Sender<ThreadCommand>) {
-    if let Err(err) = cmd_sender.send(ThreadCommand::Stop) {
-        error!("Send error: {}", err);
+pub async fn stop_threads(cmd_sender: broadcast::Sender<ThreadCommand>) -> ErrorCode {
+    match cmd_sender.send(ThreadCommand::Stop) {
+        Ok(_) => {
+            info!("Send command: {}", ThreadCommand::Stop);
+            ErrorCode::Success
+        }
+        Err(err) => {
+            let err_code = ErrorCode::MpmcChanThrCmdSendFail(err);
+            error!("{}", err_code);
+            err_code
+        }
     }
 }
