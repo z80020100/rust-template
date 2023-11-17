@@ -4,20 +4,21 @@ use tokio::sync::broadcast;
 
 // Custom library
 use rust_template::constant;
+use rust_template::error::ErrorCode;
 use rust_template::logger::{self, *}; // debug, error, info, trace, warn
 use rust_template::threads::{self, *};
 
-async fn main_async() {
+async fn main_async() -> ErrorCode {
     trace!("Hello, world!");
     debug!("Hello, world!");
     info!("Hello, world!");
     warn!("Hello, world!");
     error!("Hello, world!");
     let (cmd_sender, _) = broadcast::channel::<ThreadCommand>(constant::BROADCAST_CHANNEL_CAPACITY);
-    threads::start_threads(cmd_sender).await;
+    threads::start_threads(cmd_sender).await
 }
 
-fn main() {
+fn main() -> ErrorCode {
     /*
      * https://docs.rs/tracing-appender/latest/tracing_appender/non_blocking/struct.WorkerGuard.html
      * WorkerGuard should be assigned in the main function or whatever the entrypoint of the program is
@@ -26,10 +27,11 @@ fn main() {
     let _ground = logger::init();
     let app_info = format!("{} v{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
     info!("Start {}", app_info);
-    runtime::Builder::new_multi_thread()
+    let error_code = runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
         .unwrap()
         .block_on(main_async());
     info!("Exit {}", app_info);
+    error_code
 }

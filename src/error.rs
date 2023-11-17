@@ -1,3 +1,6 @@
+// Standard
+use std::process::{ExitCode, Termination};
+
 // crates.io
 use thiserror::Error;
 use tokio::sync::{broadcast, mpsc};
@@ -45,3 +48,9 @@ impl PartialEq for ErrorCode {
 }
 
 impl Eq for ErrorCode {}
+
+impl Termination for ErrorCode {
+    fn report(self) -> ExitCode {
+        ExitCode::from(self.as_u8())
+    }
+}
