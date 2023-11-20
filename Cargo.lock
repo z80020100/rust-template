@@ -590,6 +590,7 @@ dependencies = [
  "cfg-if",
  "config",
  "parse-display",
+ "serde",
  "thiserror",
  "time",
  "tokio",
