@@ -1,8 +1,9 @@
 // crates.io
 use cfg_if::cfg_if;
-// TODO: support Windows
 #[cfg(unix)]
 use tokio::signal::unix::{signal, SignalKind};
+#[cfg(windows)]
+use tokio::signal::windows::{ctrl_break, ctrl_c, ctrl_close};
 use tokio::sync::broadcast::{self, error::RecvError};
 
 // This library
@@ -67,6 +68,9 @@ async fn signal_handler() -> Option<()> {
         if #[cfg(unix)] {
             signal_handler_unix().await;
             Some(())
+        } else if #[cfg(windows)] {
+            signal_handler_windows().await;
+            Some(())
         }
         else {
             warn!("Signal handler is not supported on \"{}\"", std::env::consts::OS);
@@ -89,6 +93,24 @@ async fn signal_handler_unix() {
         }
         Some(_) = sigterm_stream.recv() => {
             warn!("Receive SIGTERM");
+        }
+    }
+}
+
+#[cfg(windows)]
+async fn signal_handler_windows() {
+    let mut signal_ctrl_c = ctrl_c().unwrap();
+    let mut signal_ctrl_break = ctrl_break().unwrap();
+    let mut signal_ctrl_close = ctrl_close().unwrap();
+    tokio::select! {
+        Some(_) = signal_ctrl_c.recv() => {
+            warn!("Receive CTRL+C");
+        }
+        Some(_) = signal_ctrl_break.recv() => {
+            warn!("Receive CTRL+BREAK");
+        }
+        Some(_) = signal_ctrl_close.recv() => {
+            warn!("Receive CTRL+CLOSE");
         }
     }
 }
