@@ -1,14 +1,15 @@
 // Standard
 use std::io;
+use std::panic;
 use std::path::Path;
 
 // crates.io
 use time::{format_description, UtcOffset};
-use tracing_subscriber::fmt::time::OffsetTime;
-
 use tracing::Level;
 pub use tracing::{debug, error, info, trace, warn};
 use tracing_appender::{non_blocking, rolling};
+use tracing_panic::panic_hook;
+use tracing_subscriber::fmt::time::OffsetTime;
 use tracing_subscriber::{
     filter::{filter_fn, LevelFilter},
     fmt,
@@ -74,6 +75,9 @@ pub fn init() -> non_blocking::WorkerGuard {
         .with(stdeer_layer)
         .with(stdout_layer)
         .init();
+
+    // https://docs.rs/tracing-panic/0.1.1/tracing_panic/fn.panic_hook.html
+    panic::set_hook(Box::new(panic_hook));
 
     info!(
         console_level = console_level.to_string(),

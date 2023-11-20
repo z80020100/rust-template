@@ -17,4 +17,5 @@ time = "0.3.30"
 tokio = { version = "1.34.0", features = ["full"] }
 tracing = "0.1.40"
 tracing-appender = "0.2.2"
+tracing-panic = "0.1.1"
 tracing-subscriber = { version = "0.3.17", features = ["local-time"] }
