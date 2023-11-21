@@ -3,6 +3,7 @@ use tokio::runtime;
 use tokio::sync::broadcast;
 
 // Custom library
+use rust_template::configs;
 use rust_template::constant;
 use rust_template::error::ErrorCode;
 use rust_template::logger::{self, *}; // debug, error, info, trace, warn
@@ -27,11 +28,18 @@ fn main() -> ErrorCode {
     let _ground = logger::init();
     let app_info = format!("{} v{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
     info!("Start {}", app_info);
-    let error_code = runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .unwrap()
-        .block_on(main_async());
+    let error_code = match configs::init() {
+        Ok(main_config) => {
+            info!("Loaded config: \n{:#?}", main_config);
+            let error_code = runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .unwrap()
+                .block_on(main_async());
+            error_code
+        }
+        Err(err_code) => err_code,
+    };
     info!("Exit {}", app_info);
     error_code
 }
