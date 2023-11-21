@@ -11,11 +11,7 @@ use tracing_appender::{non_blocking, rolling};
 use tracing_panic::panic_hook;
 use tracing_subscriber::fmt::time::OffsetTime;
 use tracing_subscriber::{
-    filter::{filter_fn, LevelFilter},
-    fmt,
-    layer::SubscriberExt,
-    util::SubscriberInitExt,
-    Layer,
+    filter::LevelFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt, Layer,
 };
 
 pub fn init() -> non_blocking::WorkerGuard {
@@ -43,11 +39,6 @@ pub fn init() -> non_blocking::WorkerGuard {
         .with_writer(non_blocking_appender)
         .with_filter(LevelFilter::from_level(file_level));
 
-    let stderr_level = if console_level > Level::WARN {
-        Level::WARN
-    } else {
-        console_level
-    };
     let stdeer_layer = fmt::layer()
         .with_ansi(true)
         .with_file(true)
@@ -55,25 +46,11 @@ pub fn init() -> non_blocking::WorkerGuard {
         .with_timer(timer.clone())
         .with_thread_names(true)
         .with_writer(io::stderr)
-        .with_filter(LevelFilter::from_level(stderr_level));
-
-    let stdout_level = console_level;
-    let stdout_layer = fmt::layer()
-        .with_ansi(true)
-        .with_file(true)
-        .with_line_number(true)
-        .with_timer(timer.clone())
-        .with_thread_names(true)
-        .with_writer(io::stdout)
-        .with_filter(filter_fn(move |metadata| {
-            let level = *metadata.level();
-            level > stderr_level && level <= stdout_level
-        }));
+        .with_filter(LevelFilter::from_level(console_level));
 
     tracing_subscriber::Registry::default()
         .with(file_layer)
         .with(stdeer_layer)
-        .with(stdout_layer)
         .init();
 
     // https://docs.rs/tracing-panic/0.1.1/tracing_panic/fn.panic_hook.html
