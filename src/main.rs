@@ -25,13 +25,14 @@ fn main() -> ErrorCode {
      * WorkerGuard should be assigned in the main function or whatever the entrypoint of the program is
      * This will ensure that the guard will be dropped during an unwinding or when main exits successfully
      */
-    let logger = Logger::default();
-    let _ground = logger.init();
+    let mut logger = Logger::default();
+    let _ground = logger.get_guard();
     let app_info = format!("{} v{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
     info!("Start {}", app_info);
     let error_code = match configs::init() {
         Ok(main_config) => {
             info!("Loaded config: \n{:#?}", main_config);
+            logger.reconfig(main_config.logger);
             let error_code = runtime::Builder::new_multi_thread()
                 .enable_all()
                 .build()
