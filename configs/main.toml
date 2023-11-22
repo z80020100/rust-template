@@ -1,0 +1,10 @@
+[logger]
+
+# available level: debug, error, info, trace, warn
+[logger.console]
+enable = true
+level = "info"
+
+[logger.file]
+enable = true
+level = "warn"

@@ -26,6 +26,8 @@ pub enum ErrorCode {
     MpmcChanRecvFail(#[from] broadcast::error::RecvError),
     #[error("Failed to join thread: {0}")]
     ThreadJoinFail(#[from] JoinError),
+    #[error("Failed to load config: {0}")]
+    ConfigLoadFail(#[from] config::ConfigError),
 }
 
 // https://doc.rust-lang.org/std/mem/fn.discriminant.html
