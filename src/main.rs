@@ -32,7 +32,10 @@ fn main() -> ErrorCode {
     let error_code = match configs::init() {
         Ok(main_config) => {
             info!("Loaded config: \n{:#?}", main_config);
-            logger.reconfig(main_config.logger);
+            let error_code = logger.reconfig(main_config.logger);
+            if error_code != ErrorCode::Success {
+                return error_code;
+            }
             let error_code = runtime::Builder::new_multi_thread()
                 .enable_all()
                 .build()
