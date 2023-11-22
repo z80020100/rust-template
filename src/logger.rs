@@ -49,8 +49,10 @@ type ConsoleLevelReloadHandle = reload::Handle<
 type FileLevelReloadHandle = reload::Handle<LevelFilter, Registry>;
 pub struct Logger {
     pub guard: non_blocking::WorkerGuard,
+    pub console_enable: bool,
     pub console_level: Level,
     pub console_level_reload_handle: ConsoleLevelReloadHandle,
+    pub file_enable: bool,
     pub file_level: Level,
     pub file_path_prefix: String,
     pub file_level_reload_handle: FileLevelReloadHandle,
@@ -107,8 +109,10 @@ impl Logger {
 
         Self {
             guard,
+            console_enable: true,
             console_level,
             console_level_reload_handle,
+            file_enable: true,
             file_level,
             file_path_prefix,
             file_level_reload_handle,
@@ -121,46 +125,89 @@ impl Logger {
 
     pub fn reconfig(&mut self, logger_config: LoggerConfig) -> ErrorCode {
         let mut error_code = ErrorCode::Success;
-        match LevelFilter::from_str(&logger_config.console.level) {
-            Ok(console_level_filter) => {
-                if let Err(err) = self
-                    .console_level_reload_handle
-                    .reload(console_level_filter)
-                {
-                    error_code = ErrorCode::LoggerLevelReloadFail(err);
-                    error!("{}", error_code);
-                    return error_code;
-                }
-                self.console_level = Level::from_str(&logger_config.console.level).unwrap();
-            }
-            Err(err) => {
-                error_code = ErrorCode::LoggerLevelParseFail(err);
+
+        if !logger_config.console.enable {
+            debug!("Disable console logger");
+            if let Err(err) = self.console_level_reload_handle.reload(LevelFilter::OFF) {
+                error_code = ErrorCode::LoggerLevelReloadFail(err);
                 error!("{}", error_code);
                 return error_code;
             }
-        }
-        match LevelFilter::from_str(&logger_config.file.level) {
-            Ok(file_level_filter) => {
-                if let Err(err) = self.file_level_reload_handle.reload(file_level_filter) {
-                    error_code = ErrorCode::LoggerLevelReloadFail(err);
+            self.console_enable = false;
+        } else {
+            match LevelFilter::from_str(&logger_config.console.level) {
+                Ok(console_level_filter) => {
+                    if let Err(err) = self
+                        .console_level_reload_handle
+                        .reload(console_level_filter)
+                    {
+                        error_code = ErrorCode::LoggerLevelReloadFail(err);
+                        error!("{}", error_code);
+                        return error_code;
+                    }
+                    self.console_level = Level::from_str(&logger_config.console.level).unwrap();
+                }
+                Err(err) => {
+                    error_code = ErrorCode::LoggerLevelParseFail(err);
                     error!("{}", error_code);
                     return error_code;
                 }
-                self.file_level = Level::from_str(&logger_config.file.level).unwrap();
-            }
-            Err(err) => {
-                let error_code = ErrorCode::LoggerLevelParseFail(err);
-                error!("{}", error_code);
-                return error_code;
             }
         }
 
-        warn!(
-            console_level = self.console_level.to_string(),
-            file_level = self.file_level.to_string(),
-            file_path_prefix = self.file_path_prefix.as_str(),
-            "Logger reconfigured:"
-        );
+        if !logger_config.file.enable {
+            debug!("Disable file logger");
+            if let Err(err) = self.file_level_reload_handle.reload(LevelFilter::OFF) {
+                error_code = ErrorCode::LoggerLevelReloadFail(err);
+                error!("{}", error_code);
+                return error_code;
+            }
+            self.file_enable = false;
+        } else {
+            match LevelFilter::from_str(&logger_config.file.level) {
+                Ok(file_level_filter) => {
+                    if let Err(err) = self.file_level_reload_handle.reload(file_level_filter) {
+                        error_code = ErrorCode::LoggerLevelReloadFail(err);
+                        error!("{}", error_code);
+                        return error_code;
+                    }
+                    self.file_level = Level::from_str(&logger_config.file.level).unwrap();
+                }
+                Err(err) => {
+                    let error_code = ErrorCode::LoggerLevelParseFail(err);
+                    error!("{}", error_code);
+                    return error_code;
+                }
+            }
+        }
+
+        if self.console_enable && self.file_enable {
+            warn!(
+                console_level = self.console_level.to_string(),
+                file_level = self.file_level.to_string(),
+                file_path_prefix = self.file_path_prefix.as_str(),
+                "Logger reconfigured:"
+            );
+        } else if self.console_enable {
+            warn!(
+                console_level = self.console_level.to_string(),
+                file_enable = self.file_enable,
+                "Logger reconfigured:"
+            );
+        } else if self.file_enable {
+            warn!(
+                console_enable = self.console_enable,
+                file_level = self.file_level.to_string(),
+                file_path_prefix = self.file_path_prefix.as_str(),
+                "Logger reconfigured:"
+            );
+        } else {
+            warn!(
+                console_enable = self.console_enable,
+                file_enable = self.file_enable,
+                "Logger reconfigured:"
+            );
+        }
 
         error_code
     }
