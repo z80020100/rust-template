@@ -5,6 +5,8 @@ use std::process::{ExitCode, Termination};
 use thiserror::Error;
 use tokio::sync::{broadcast, mpsc};
 use tokio::task::JoinError;
+use tracing::level_filters::ParseLevelFilterError;
+use tracing_subscriber::reload::Error as TracingSubscriberReloadError;
 
 // This library
 use crate::threads::ThreadCommand;
@@ -28,6 +30,10 @@ pub enum ErrorCode {
     ThreadJoinFail(#[from] JoinError),
     #[error("Failed to load config: {0}")]
     ConfigLoadFail(#[from] config::ConfigError),
+    #[error("Failed to configure logger: {0}")]
+    LoggerLevelParseFail(#[from] ParseLevelFilterError),
+    #[error("Failed to configure logger: {0}")]
+    LoggerLevelReloadFail(#[from] TracingSubscriberReloadError),
 }
 
 // https://doc.rust-lang.org/std/mem/fn.discriminant.html
