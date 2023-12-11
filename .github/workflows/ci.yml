@@ -4,9 +4,15 @@ on:
   push:
     branches:
       - main
+    paths:
+      - "**.rs"
+      - "**.toml"
   pull_request:
     branches:
       - main
+    paths:
+      - "**.rs"
+      - "**.toml"
 
 env:
   RUSTFLAGS: -Dwarnings
