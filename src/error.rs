@@ -16,8 +16,6 @@ use crate::threads::ThreadCommand;
 pub enum ErrorCode {
     #[error("Success")]
     Success = 0,
-    #[error("Undefined")]
-    Undefined,
     #[error("Failed to send data (MPSC): {0}")]
     MpscUnboundChanI32SendFail(#[from] mpsc::error::SendError<i32>),
     #[error("Failed to receive data (MPSC): channel closed")]

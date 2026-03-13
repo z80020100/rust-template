@@ -14,15 +14,16 @@ use crate::logger::*; // debug, error, info, trace, warn
 pub async fn start(
     mut cmd_receiver: broadcast::Receiver<ThreadCommand>,
     cmd_sender: broadcast::Sender<ThreadCommand>,
-) -> ErrorCode {
-    let mut error_code = ErrorCode::Success;
+) -> Result<(), ErrorCode> {
     let mut loop_running = true;
     while loop_running {
         tokio::select! {
             is_supported = signal_handler() => {
                 match is_supported {
                     Some(_) => {
-                        error_code = super::stop_threads(cmd_sender.clone()).await;
+                        if let Err(err) = super::stop_threads(&cmd_sender).await {
+                            error!("Failed to stop threads from signal handler: {}", err);
+                        }
                         loop_running = false;
                     }
                     None => {
@@ -31,19 +32,11 @@ pub async fn start(
                 }
             }
             cmd = cmd_receiver.recv() => {
-                match cmd_handler(cmd) {
-                    Ok(running) => {
-                        loop_running = running;
-                    }
-                    Err(err) => {
-                        error_code = err;
-                        loop_running = false;
-                    }
-                }
+                loop_running = cmd_handler(cmd)?;
             }
         }
     }
-    error_code
+    Ok(())
 }
 
 // Intentionally kept per-module for independent customization in template usage

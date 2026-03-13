@@ -44,8 +44,7 @@ fn spawn_thread<F, R>(
     });
 }
 
-pub async fn start_threads(cmd_sender: broadcast::Sender<ThreadCommand>) -> ErrorCode {
-    let mut error_code = ErrorCode::Undefined;
+pub async fn start_threads(cmd_sender: broadcast::Sender<ThreadCommand>) -> Result<(), ErrorCode> {
     let mut join_set = JoinSet::new();
     let (data_sender, data_receiver) = mpsc::unbounded_channel::<i32>();
     spawn_thread(
@@ -63,39 +62,50 @@ pub async fn start_threads(cmd_sender: broadcast::Sender<ThreadCommand>) -> Erro
         ThreadName::SignalHandler,
         signal_handler::start(cmd_sender.subscribe(), cmd_sender.clone()),
     );
+    let mut first_error = None;
     while let Some(join_ret) = join_set.join_next().await {
         match join_ret {
-            Ok(ret) => {
-                error_code = ret;
+            Ok(res) => {
+                if let Err(err_code) = res {
+                    error!(
+                        "One of threads returned error: {} {{ {:#?} }}",
+                        err_code.as_u8(),
+                        err_code
+                    );
+                    if first_error.is_none() {
+                        _ = stop_threads(&cmd_sender).await;
+                        first_error = Some(err_code);
+                    }
+                }
             }
             Err(err) => {
-                error_code = ErrorCode::ThreadJoinFail(err);
+                let error_code = ErrorCode::ThreadJoinFail(err);
                 error!("{}", error_code);
+                if first_error.is_none() {
+                    _ = stop_threads(&cmd_sender).await;
+                    first_error = Some(error_code);
+                }
                 break;
             }
         }
-        if error_code != ErrorCode::Success {
-            error!(
-                "One of threads returned error: {} {{ {:#?} }}",
-                error_code.as_u8(),
-                error_code
-            );
-            _ = stop_threads(cmd_sender.clone()).await;
-        }
     }
-    error_code
+    if let Some(err_code) = first_error {
+        Err(err_code)
+    } else {
+        Ok(())
+    }
 }
 
-pub async fn stop_threads(cmd_sender: broadcast::Sender<ThreadCommand>) -> ErrorCode {
+pub async fn stop_threads(cmd_sender: &broadcast::Sender<ThreadCommand>) -> Result<(), ErrorCode> {
     match cmd_sender.send(ThreadCommand::Stop) {
         Ok(_) => {
             info!("Send command: {}", ThreadCommand::Stop);
-            ErrorCode::Success
+            Ok(())
         }
         Err(err) => {
             let err_code = ErrorCode::MpmcChanThrCmdSendFail(err);
             error!("{}", err_code);
-            err_code
+            Err(err_code)
         }
     }
 }

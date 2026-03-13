@@ -12,38 +12,28 @@ use crate::logger::*; // debug, error, info, trace, warn
 pub async fn start(
     mut cmd_receiver: broadcast::Receiver<ThreadCommand>,
     mut data_receiver: mpsc::UnboundedReceiver<i32>,
-) -> ErrorCode {
-    let mut error_code = ErrorCode::Undefined;
+) -> Result<(), ErrorCode> {
     let mut loop_running = true;
     while loop_running {
         tokio::select! {
             counter = data_receiver.recv() => {
                 match counter {
                     Some(counter) => {
-                        error_code = ErrorCode::Success;
                         info!("Consume: {}", counter);
                     }
                     None => {
-                        error_code = ErrorCode::MpscUnboundChanRecvFail;
+                        let error_code = ErrorCode::MpscUnboundChanRecvFail;
                         error!("{}", error_code);
-                        loop_running = false;
+                        return Err(error_code);
                     }
                 }
             }
             cmd = cmd_receiver.recv() => {
-                match cmd_handler(cmd) {
-                    Ok(running) => {
-                        loop_running = running;
-                    }
-                    Err(err) => {
-                        error_code = err;
-                        loop_running = false;
-                    }
-                }
+                loop_running = cmd_handler(cmd)?;
             }
         }
     }
-    error_code
+    Ok(())
 }
 
 // Intentionally kept per-module for independent customization in template usage
