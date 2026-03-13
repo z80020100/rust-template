@@ -511,7 +511,7 @@ dependencies = [
  "config",
  "parse-display",
  "serde",
- "thiserror 1.0.50",
+ "thiserror 2.0.18",
  "time",
  "tokio",
  "tracing",
