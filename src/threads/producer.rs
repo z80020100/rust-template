@@ -45,14 +45,15 @@ pub async fn start(
     error_code
 }
 
+// Intentionally kept per-module for independent customization in template usage
 fn cmd_handler(cmd: Result<ThreadCommand, RecvError>) -> Result<bool, ErrorCode> {
     match cmd {
         Ok(cmd) => {
             info!("Receive command: {}", cmd);
-            let loop_runing = match cmd {
+            let loop_running = match cmd {
                 ThreadCommand::Stop => false,
             };
-            Ok(loop_runing)
+            Ok(loop_running)
         }
         Err(err) => {
             let error_code = ErrorCode::MpmcChanRecvFail(err);
