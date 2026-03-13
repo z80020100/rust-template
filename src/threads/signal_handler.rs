@@ -1,7 +1,7 @@
 // crates.io
 use cfg_if::cfg_if;
 #[cfg(unix)]
-use tokio::signal::unix::{signal, SignalKind};
+use tokio::signal::unix::{SignalKind, signal};
 #[cfg(windows)]
 use tokio::signal::windows::{ctrl_break, ctrl_c, ctrl_close};
 use tokio::sync::broadcast::{self, error::RecvError};

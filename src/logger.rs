@@ -5,15 +5,15 @@ use std::path::Path;
 use std::str::FromStr;
 
 // crates.io
-use time::{format_description, UtcOffset};
+use time::{UtcOffset, format_description};
 use tracing::Level;
 pub use tracing::{debug, error, info, trace, warn};
 use tracing_appender::{non_blocking, rolling};
 use tracing_panic::panic_hook;
 use tracing_subscriber::fmt::time::OffsetTime;
 use tracing_subscriber::{
-    filter::LevelFilter, fmt, layer::SubscriberExt, reload, util::SubscriberInitExt, Layer,
-    Registry,
+    Layer, Registry, filter::LevelFilter, fmt, layer::SubscriberExt, reload,
+    util::SubscriberInitExt,
 };
 
 // This library
