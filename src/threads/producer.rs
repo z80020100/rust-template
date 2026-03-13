@@ -14,11 +14,12 @@ pub async fn start(
     mut cmd_receiver: broadcast::Receiver<ThreadCommand>,
     data_sender: mpsc::UnboundedSender<i32>,
 ) -> Result<(), ErrorCode> {
+    let mut interval = time::interval(Duration::from_secs(1));
     let mut counter = 0;
     let mut loop_running = true;
     while loop_running {
         tokio::select! {
-            _ = time::sleep(Duration::from_secs(1)) => {
+            _ = interval.tick() => {
                 counter += 1;
                 info!("Produce: {}", counter);
                 if let Err(err) = data_sender.send(counter) {
