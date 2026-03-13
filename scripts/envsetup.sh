@@ -47,7 +47,7 @@ function install_cross() {
 # Install custom cross
 function install_custom_cross() {
   echo "Install custom cross from $CUSTOM_CROSS_BRANCH branch of $CUSTOM_CROSS_REPO_URL"
-  cargo install cross --git $CUSTOM_CROSS_REPO_URL --branch $CUSTOM_CROSS_BRANCH
+  cargo install cross --git $CUSTOM_CROSS_REPO_URL --branch $CUSTOM_CROSS_BRANCH --locked
 }
 
 function main() {
