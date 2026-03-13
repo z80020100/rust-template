@@ -13,8 +13,7 @@ use crate::logger::*; // debug, error, info, trace, warn
 pub async fn start(
     mut cmd_receiver: broadcast::Receiver<ThreadCommand>,
     data_sender: mpsc::UnboundedSender<i32>,
-) -> ErrorCode {
-    let mut error_code = ErrorCode::Undefined;
+) -> Result<(), ErrorCode> {
     let mut counter = 0;
     let mut loop_running = true;
     while loop_running {
@@ -22,37 +21,29 @@ pub async fn start(
             _ = time::sleep(Duration::from_secs(1)) => {
                 counter += 1;
                 info!("Produce: {}", counter);
-                error_code = ErrorCode::Success;
                 if let Err(err) = data_sender.send(counter) {
-                    error_code = ErrorCode::MpscUnboundChanI32SendFail(err);
+                    let error_code = ErrorCode::MpscUnboundChanI32SendFail(err);
                     error!("{}", error_code);
-                    loop_running = false;
+                    return Err(error_code);
                 }
             }
             cmd = cmd_receiver.recv() => {
-                match cmd_handler(cmd) {
-                    Ok(running) => {
-                        loop_running = running;
-                    }
-                    Err(err) => {
-                        error_code = err;
-                        loop_running = false;
-                    }
-                }
+                loop_running = cmd_handler(cmd)?;
             }
         }
     }
-    error_code
+    Ok(())
 }
 
+// Intentionally kept per-module for independent customization in template usage
 fn cmd_handler(cmd: Result<ThreadCommand, RecvError>) -> Result<bool, ErrorCode> {
     match cmd {
         Ok(cmd) => {
             info!("Receive command: {}", cmd);
-            let loop_runing = match cmd {
+            let loop_running = match cmd {
                 ThreadCommand::Stop => false,
             };
-            Ok(loop_runing)
+            Ok(loop_running)
         }
         Err(err) => {
             let error_code = ErrorCode::MpmcChanRecvFail(err);

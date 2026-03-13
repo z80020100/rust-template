@@ -9,7 +9,7 @@ use rust_template::error::ErrorCode;
 use rust_template::logger::*; // debug, error, info, trace, warn
 use rust_template::threads::{self, *};
 
-async fn main_async() -> ErrorCode {
+async fn main_async() -> Result<(), ErrorCode> {
     trace!("Hello, world!");
     debug!("Hello, world!");
     info!("Hello, world!");
@@ -37,11 +37,15 @@ fn main() -> ErrorCode {
                 return error_code;
             }
 
-            runtime::Builder::new_multi_thread()
+            match runtime::Builder::new_multi_thread()
                 .enable_all()
                 .build()
                 .unwrap()
                 .block_on(main_async())
+            {
+                Ok(()) => ErrorCode::Success,
+                Err(err_code) => err_code,
+            }
         }
         Err(err_code) => err_code,
     };
