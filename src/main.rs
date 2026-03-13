@@ -36,12 +36,12 @@ fn main() -> ErrorCode {
             if error_code != ErrorCode::Success {
                 return error_code;
             }
-            let error_code = runtime::Builder::new_multi_thread()
+
+            runtime::Builder::new_multi_thread()
                 .enable_all()
                 .build()
                 .unwrap()
-                .block_on(main_async());
-            error_code
+                .block_on(main_async())
         }
         Err(err_code) => err_code,
     };
