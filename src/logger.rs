@@ -17,7 +17,7 @@ use tracing_subscriber::{
 };
 
 // This library
-use crate::configs::LoggerConfig;
+use crate::configs::{AppendersConfig, LoggerConfig};
 use crate::error::ErrorCode;
 
 // Type-erased reload handle to avoid deeply nested generic types
@@ -139,32 +139,27 @@ impl Logger {
         );
     }
 
+    fn parse_level_filter(config: &AppendersConfig) -> Result<LevelFilter, ErrorCode> {
+        if config.enable {
+            LevelFilter::from_str(&config.level).map_err(|err| {
+                let error_code = ErrorCode::LoggerLevelParseFail(err);
+                error!("{}", error_code);
+                error_code
+            })
+        } else {
+            Ok(LevelFilter::OFF)
+        }
+    }
+
     pub fn reconfig(&mut self, logger_config: LoggerConfig) -> ErrorCode {
         // Parse and validate new levels before making any changes
-        let console_filter = if logger_config.console.enable {
-            match LevelFilter::from_str(&logger_config.console.level) {
-                Ok(filter) => filter,
-                Err(err) => {
-                    let error_code = ErrorCode::LoggerLevelParseFail(err);
-                    error!("{}", error_code);
-                    return error_code;
-                }
-            }
-        } else {
-            LevelFilter::OFF
+        let console_filter = match Self::parse_level_filter(&logger_config.console) {
+            Ok(filter) => filter,
+            Err(error_code) => return error_code,
         };
-
-        let file_filter = if logger_config.file.enable {
-            match LevelFilter::from_str(&logger_config.file.level) {
-                Ok(filter) => filter,
-                Err(err) => {
-                    let error_code = ErrorCode::LoggerLevelParseFail(err);
-                    error!("{}", error_code);
-                    return error_code;
-                }
-            }
-        } else {
-            LevelFilter::OFF
+        let file_filter = match Self::parse_level_filter(&logger_config.file) {
+            Ok(filter) => filter,
+            Err(error_code) => return error_code,
         };
 
         let new_console_level = console_filter.into_level().unwrap_or(self.console_level);
