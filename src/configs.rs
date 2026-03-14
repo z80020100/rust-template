@@ -8,7 +8,23 @@ use crate::logger::*; // debug, error, info, trace, warn
 
 #[derive(Debug, Deserialize)]
 pub struct MainConfig {
+    #[serde(default)]
+    pub threads: ThreadsConfig,
     pub logger: LoggerConfig,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(default)]
+pub struct ThreadsConfig {
+    pub shutdown_timeout_secs: u64,
+}
+
+impl Default for ThreadsConfig {
+    fn default() -> Self {
+        Self {
+            shutdown_timeout_secs: 10,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
