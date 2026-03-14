@@ -113,7 +113,15 @@ impl Logger {
             file_level_reload_handle: Box::new(file_level_reload_handle),
             utc_offset,
         };
-        logger.log_status("Logger initialized:");
+        trace!(
+            console_enable = logger.console_enable,
+            console_level = logger.console_level.to_string(),
+            file_enable = logger.file_enable,
+            file_level = logger.file_level.to_string(),
+            file_path_prefix = logger.file_path_prefix.as_str(),
+            utc_offset = logger.utc_offset_str(),
+            "Logger initialized:"
+        );
         logger
     }
 
@@ -124,19 +132,6 @@ impl Logger {
     fn utc_offset_str(&self) -> String {
         let (h, m, _) = self.utc_offset.as_hms();
         format!("{:+03}:{:02}", h, m.unsigned_abs())
-    }
-
-    fn log_status(&self, message: &str) {
-        trace!(
-            console_enable = self.console_enable,
-            console_level = self.console_level.to_string(),
-            file_enable = self.file_enable,
-            file_level = self.file_level.to_string(),
-            file_path_prefix = self.file_path_prefix.as_str(),
-            utc_offset = self.utc_offset_str(),
-            "{}",
-            message
-        );
     }
 
     fn parse_level_filter(config: &AppendersConfig) -> Result<LevelFilter, ErrorCode> {
