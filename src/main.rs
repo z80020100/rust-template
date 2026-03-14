@@ -31,7 +31,7 @@ fn main() -> ErrorCode {
     info!("Start {}", app_info);
     let error_code = match configs::init() {
         Ok(main_config) => {
-            info!("Loaded config: \n{:#?}", main_config);
+            debug!("Loaded config: \n{:#?}", main_config);
             let error_code = logger.reconfig(main_config.logger);
             if error_code != ErrorCode::Success {
                 return error_code;

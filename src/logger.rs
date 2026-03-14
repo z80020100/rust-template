@@ -12,59 +12,60 @@ use tracing_appender::{non_blocking, rolling};
 use tracing_panic::panic_hook;
 use tracing_subscriber::fmt::time::OffsetTime;
 use tracing_subscriber::{
-    Layer, Registry, filter::LevelFilter, fmt, layer::SubscriberExt, reload,
-    util::SubscriberInitExt,
+    Layer, filter::LevelFilter, fmt, layer::SubscriberExt, reload, util::SubscriberInitExt,
 };
 
 // This library
-use crate::configs::LoggerConfig;
+use crate::configs::{AppendersConfig, LoggerConfig};
 use crate::error::ErrorCode;
 
-// Type definitions
-// FIXME: clippy::type_complexity
-type ConsoleLevelReloadHandle = reload::Handle<
-    tracing::level_filters::LevelFilter,
-    tracing_subscriber::layer::Layered<
-        tracing_subscriber::filter::Filtered<
-            tracing_subscriber::fmt::Layer<
-                tracing_subscriber::Registry,
-                tracing_subscriber::fmt::format::DefaultFields,
-                tracing_subscriber::fmt::format::Format<
-                    tracing_subscriber::fmt::format::Full,
-                    tracing_subscriber::fmt::time::OffsetTime<
-                        std::vec::Vec<time::format_description::FormatItem<'static>>,
-                    >,
-                >,
-                tracing_appender::non_blocking::NonBlocking,
-            >,
-            tracing_subscriber::reload::Layer<
-                tracing::level_filters::LevelFilter,
-                tracing_subscriber::Registry,
-            >,
-            tracing_subscriber::Registry,
-        >,
-        tracing_subscriber::Registry,
-    >,
->;
-type FileLevelReloadHandle = reload::Handle<LevelFilter, Registry>;
+// Type-erased reload handle to avoid deeply nested generic types
+trait LevelFilterReloader: Send + Sync {
+    fn reload(&self, new_filter: LevelFilter) -> Result<(), reload::Error>;
+}
+
+impl<S> LevelFilterReloader for reload::Handle<LevelFilter, S>
+where
+    LevelFilter: Layer<S> + 'static,
+    S: tracing::Subscriber + 'static,
+{
+    fn reload(&self, new_filter: LevelFilter) -> Result<(), reload::Error> {
+        self.reload(new_filter)
+    }
+}
+
 pub struct Logger {
     pub guard: non_blocking::WorkerGuard,
     pub console_enable: bool,
     pub console_level: Level,
-    pub console_level_reload_handle: ConsoleLevelReloadHandle,
+    console_level_reload_handle: Box<dyn LevelFilterReloader>,
     pub file_enable: bool,
     pub file_level: Level,
     pub file_path_prefix: String,
-    pub file_level_reload_handle: FileLevelReloadHandle,
+    file_level_reload_handle: Box<dyn LevelFilterReloader>,
+    pub utc_offset: UtcOffset,
 }
 
 impl Logger {
     pub fn new(console_level: Level, file_level: Level, file_path_prefix: String) -> Self {
         let format = "[year]-[month]-[day] [hour]:[minute]:[second].[subsecond digits:3]";
-        let timer = OffsetTime::new(
-            UtcOffset::current_local_offset().unwrap(),
-            format_description::parse(format).unwrap(),
-        );
+        // UtcOffset::current_local_offset() may fail on Unix/Linux in multi-threaded
+        // processes. The `time` crate (since 0.3.9) returns Err(IndeterminateOffset)
+        // instead of calling libc::localtime_r, because localtime_r internally uses
+        // getenv("TZ") which is not thread-safe — a concurrent setenv/putenv call
+        // from another thread would cause a data race (undefined behavior).
+        // macOS is exempt as its localtime_r implementation is considered thread-safe.
+        //
+        // Currently Logger is constructed in main() before the Tokio runtime starts
+        // (single-threaded), so this typically succeeds. However, to avoid a panic if
+        // the initialization order changes, we fall back to UTC.
+        //
+        // References:
+        // - https://docs.rs/time/latest/time/struct.UtcOffset.html#method.current_local_offset
+        // - https://github.com/time-rs/time/issues/293
+        // - https://github.com/time-rs/time/blob/main/time/src/utc_offset.rs
+        let utc_offset = UtcOffset::current_local_offset().unwrap_or(UtcOffset::UTC);
+        let timer = OffsetTime::new(utc_offset, format_description::parse(format).unwrap());
 
         let (file_level_filter, file_level_reload_handle) =
             reload::Layer::new(LevelFilter::from_level(file_level));
@@ -100,122 +101,110 @@ impl Logger {
         // https://docs.rs/tracing-panic/0.1.1/tracing_panic/fn.panic_hook.html
         panic::set_hook(Box::new(panic_hook));
 
-        info!(
-            console_level = console_level.to_string(),
-            file_level = file_level.to_string(),
-            file_path_prefix = file_path_prefix.as_str(),
-            "Logger initialized:"
-        );
-
-        Self {
+        let logger = Self {
             guard,
             console_enable: true,
             console_level,
-            console_level_reload_handle,
+            console_level_reload_handle: Box::new(console_level_reload_handle),
             file_enable: true,
             file_level,
             file_path_prefix,
-            file_level_reload_handle,
-        }
+            file_level_reload_handle: Box::new(file_level_reload_handle),
+            utc_offset,
+        };
+        trace!(
+            console_enable = logger.console_enable,
+            console_level = logger.console_level.to_string(),
+            file_enable = logger.file_enable,
+            file_level = logger.file_level.to_string(),
+            file_path_prefix = logger.file_path_prefix.as_str(),
+            utc_offset = logger.utc_offset_str(),
+            "Logger initialized:"
+        );
+        logger
     }
 
     pub fn get_guard(&self) -> &non_blocking::WorkerGuard {
         &self.guard
     }
 
+    fn utc_offset_str(&self) -> String {
+        let (h, m, _) = self.utc_offset.as_hms();
+        format!("{:+03}:{:02}", h, m.unsigned_abs())
+    }
+
+    fn parse_level_filter(config: &AppendersConfig) -> Result<LevelFilter, ErrorCode> {
+        if config.enable {
+            LevelFilter::from_str(&config.level).map_err(|err| {
+                let error_code = ErrorCode::LoggerLevelParseFail(err);
+                error!("{}", error_code);
+                error_code
+            })
+        } else {
+            Ok(LevelFilter::OFF)
+        }
+    }
+
     pub fn reconfig(&mut self, logger_config: LoggerConfig) -> ErrorCode {
-        let mut error_code = ErrorCode::Success;
+        // Parse and validate new levels before making any changes
+        let console_filter = match Self::parse_level_filter(&logger_config.console) {
+            Ok(filter) => filter,
+            Err(error_code) => return error_code,
+        };
+        let file_filter = match Self::parse_level_filter(&logger_config.file) {
+            Ok(filter) => filter,
+            Err(error_code) => return error_code,
+        };
 
-        if !logger_config.console.enable {
-            debug!("Disable console logger");
-            if let Err(err) = self.console_level_reload_handle.reload(LevelFilter::OFF) {
-                error_code = ErrorCode::LoggerLevelReloadFail(err);
-                error!("{}", error_code);
-                return error_code;
-            }
-            self.console_enable = false;
+        let new_console_level = console_filter.into_level().unwrap_or(self.console_level);
+        let new_file_level = file_filter.into_level().unwrap_or(self.file_level);
+
+        // Log before applying changes to ensure visibility under old filter levels
+        warn!(
+            console_enable = logger_config.console.enable,
+            console_level = new_console_level.to_string(),
+            file_enable = logger_config.file.enable,
+            file_level = new_file_level.to_string(),
+            file_path_prefix = self.file_path_prefix.as_str(),
+            utc_offset = self.utc_offset_str(),
+            "Logger reconfiguring:"
+        );
+
+        // Save old console filter for potential rollback
+        let old_console_filter = if self.console_enable {
+            LevelFilter::from_level(self.console_level)
         } else {
-            match LevelFilter::from_str(&logger_config.console.level) {
-                Ok(console_level_filter) => {
-                    if let Err(err) = self
-                        .console_level_reload_handle
-                        .reload(console_level_filter)
-                    {
-                        error_code = ErrorCode::LoggerLevelReloadFail(err);
-                        error!("{}", error_code);
-                        return error_code;
-                    }
-                    self.console_level = Level::from_str(&logger_config.console.level).unwrap();
-                }
-                Err(err) => {
-                    error_code = ErrorCode::LoggerLevelParseFail(err);
-                    error!("{}", error_code);
-                    return error_code;
-                }
+            LevelFilter::OFF
+        };
+
+        // Apply filter changes
+        if let Err(err) = self.console_level_reload_handle.reload(console_filter) {
+            let error_code = ErrorCode::LoggerLevelReloadFail(err);
+            error!("{}", error_code);
+            return error_code;
+        }
+        if let Err(err) = self.file_level_reload_handle.reload(file_filter) {
+            if let Err(rollback_err) = self.console_level_reload_handle.reload(old_console_filter) {
+                warn!("Failed to rollback console filter: {}", rollback_err);
             }
+            let error_code = ErrorCode::LoggerLevelReloadFail(err);
+            error!("{}", error_code);
+            return error_code;
         }
 
-        if !logger_config.file.enable {
-            debug!("Disable file logger");
-            if let Err(err) = self.file_level_reload_handle.reload(LevelFilter::OFF) {
-                error_code = ErrorCode::LoggerLevelReloadFail(err);
-                error!("{}", error_code);
-                return error_code;
-            }
-            self.file_enable = false;
-        } else {
-            match LevelFilter::from_str(&logger_config.file.level) {
-                Ok(file_level_filter) => {
-                    if let Err(err) = self.file_level_reload_handle.reload(file_level_filter) {
-                        error_code = ErrorCode::LoggerLevelReloadFail(err);
-                        error!("{}", error_code);
-                        return error_code;
-                    }
-                    self.file_level = Level::from_str(&logger_config.file.level).unwrap();
-                }
-                Err(err) => {
-                    let error_code = ErrorCode::LoggerLevelParseFail(err);
-                    error!("{}", error_code);
-                    return error_code;
-                }
-            }
-        }
+        // Update state only after successful reload
+        self.console_enable = logger_config.console.enable;
+        self.console_level = new_console_level;
+        self.file_enable = logger_config.file.enable;
+        self.file_level = new_file_level;
 
-        if self.console_enable && self.file_enable {
-            warn!(
-                console_level = self.console_level.to_string(),
-                file_level = self.file_level.to_string(),
-                file_path_prefix = self.file_path_prefix.as_str(),
-                "Logger reconfigured:"
-            );
-        } else if self.console_enable {
-            warn!(
-                console_level = self.console_level.to_string(),
-                file_enable = self.file_enable,
-                "Logger reconfigured:"
-            );
-        } else if self.file_enable {
-            warn!(
-                console_enable = self.console_enable,
-                file_level = self.file_level.to_string(),
-                file_path_prefix = self.file_path_prefix.as_str(),
-                "Logger reconfigured:"
-            );
-        } else {
-            warn!(
-                console_enable = self.console_enable,
-                file_enable = self.file_enable,
-                "Logger reconfigured:"
-            );
-        }
-
-        error_code
+        ErrorCode::Success
     }
 }
 
 impl Default for Logger {
     fn default() -> Self {
         let file_path_prefix = format!("log/{}.log", env!("CARGO_PKG_NAME")).replace('-', "_");
-        Self::new(Level::DEBUG, Level::DEBUG, file_path_prefix)
+        Self::new(Level::TRACE, Level::TRACE, file_path_prefix)
     }
 }
