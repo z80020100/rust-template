@@ -56,15 +56,29 @@ pub struct Logger {
     pub file_level: Level,
     pub file_path_prefix: String,
     pub file_level_reload_handle: FileLevelReloadHandle,
+    pub utc_offset: UtcOffset,
 }
 
 impl Logger {
     pub fn new(console_level: Level, file_level: Level, file_path_prefix: String) -> Self {
         let format = "[year]-[month]-[day] [hour]:[minute]:[second].[subsecond digits:3]";
-        let timer = OffsetTime::new(
-            UtcOffset::current_local_offset().unwrap(),
-            format_description::parse(format).unwrap(),
-        );
+        // UtcOffset::current_local_offset() may fail on Unix/Linux in multi-threaded
+        // processes. The `time` crate (since 0.3.9) returns Err(IndeterminateOffset)
+        // instead of calling libc::localtime_r, because localtime_r internally uses
+        // getenv("TZ") which is not thread-safe — a concurrent setenv/putenv call
+        // from another thread would cause a data race (undefined behavior).
+        // macOS is exempt as its localtime_r implementation is considered thread-safe.
+        //
+        // Currently Logger is constructed in main() before the Tokio runtime starts
+        // (single-threaded), so this typically succeeds. However, to avoid a panic if
+        // the initialization order changes, we fall back to UTC.
+        //
+        // References:
+        // - https://docs.rs/time/latest/time/struct.UtcOffset.html#method.current_local_offset
+        // - https://github.com/time-rs/time/issues/293
+        // - https://github.com/time-rs/time/blob/main/time/src/utc_offset.rs
+        let utc_offset = UtcOffset::current_local_offset().unwrap_or(UtcOffset::UTC);
+        let timer = OffsetTime::new(utc_offset, format_description::parse(format).unwrap());
 
         let (file_level_filter, file_level_reload_handle) =
             reload::Layer::new(LevelFilter::from_level(file_level));
@@ -100,14 +114,7 @@ impl Logger {
         // https://docs.rs/tracing-panic/0.1.1/tracing_panic/fn.panic_hook.html
         panic::set_hook(Box::new(panic_hook));
 
-        info!(
-            console_level = console_level.to_string(),
-            file_level = file_level.to_string(),
-            file_path_prefix = file_path_prefix.as_str(),
-            "Logger initialized:"
-        );
-
-        Self {
+        let logger = Self {
             guard,
             console_enable: true,
             console_level,
@@ -116,100 +123,95 @@ impl Logger {
             file_level,
             file_path_prefix,
             file_level_reload_handle,
-        }
+            utc_offset,
+        };
+        logger.log_status("Logger initialized:");
+        logger
     }
 
     pub fn get_guard(&self) -> &non_blocking::WorkerGuard {
         &self.guard
     }
 
+    fn utc_offset_str(&self) -> String {
+        let (h, m, _) = self.utc_offset.as_hms();
+        format!("{:+03}:{:02}", h, m.unsigned_abs())
+    }
+
+    fn log_status(&self, message: &str) {
+        info!(
+            console_enable = self.console_enable,
+            console_level = self.console_level.to_string(),
+            file_enable = self.file_enable,
+            file_level = self.file_level.to_string(),
+            file_path_prefix = self.file_path_prefix.as_str(),
+            utc_offset = self.utc_offset_str(),
+            "{}",
+            message
+        );
+    }
+
     pub fn reconfig(&mut self, logger_config: LoggerConfig) -> ErrorCode {
-        let mut error_code = ErrorCode::Success;
-
-        if !logger_config.console.enable {
-            debug!("Disable console logger");
-            if let Err(err) = self.console_level_reload_handle.reload(LevelFilter::OFF) {
-                error_code = ErrorCode::LoggerLevelReloadFail(err);
-                error!("{}", error_code);
-                return error_code;
-            }
-            self.console_enable = false;
-        } else {
+        // Parse and validate new levels before making any changes
+        let console_filter = if logger_config.console.enable {
             match LevelFilter::from_str(&logger_config.console.level) {
-                Ok(console_level_filter) => {
-                    if let Err(err) = self
-                        .console_level_reload_handle
-                        .reload(console_level_filter)
-                    {
-                        error_code = ErrorCode::LoggerLevelReloadFail(err);
-                        error!("{}", error_code);
-                        return error_code;
-                    }
-                    self.console_level = Level::from_str(&logger_config.console.level).unwrap();
-                }
-                Err(err) => {
-                    error_code = ErrorCode::LoggerLevelParseFail(err);
-                    error!("{}", error_code);
-                    return error_code;
-                }
-            }
-        }
-
-        if !logger_config.file.enable {
-            debug!("Disable file logger");
-            if let Err(err) = self.file_level_reload_handle.reload(LevelFilter::OFF) {
-                error_code = ErrorCode::LoggerLevelReloadFail(err);
-                error!("{}", error_code);
-                return error_code;
-            }
-            self.file_enable = false;
-        } else {
-            match LevelFilter::from_str(&logger_config.file.level) {
-                Ok(file_level_filter) => {
-                    if let Err(err) = self.file_level_reload_handle.reload(file_level_filter) {
-                        error_code = ErrorCode::LoggerLevelReloadFail(err);
-                        error!("{}", error_code);
-                        return error_code;
-                    }
-                    self.file_level = Level::from_str(&logger_config.file.level).unwrap();
-                }
+                Ok(filter) => filter,
                 Err(err) => {
                     let error_code = ErrorCode::LoggerLevelParseFail(err);
                     error!("{}", error_code);
                     return error_code;
                 }
             }
-        }
-
-        if self.console_enable && self.file_enable {
-            warn!(
-                console_level = self.console_level.to_string(),
-                file_level = self.file_level.to_string(),
-                file_path_prefix = self.file_path_prefix.as_str(),
-                "Logger reconfigured:"
-            );
-        } else if self.console_enable {
-            warn!(
-                console_level = self.console_level.to_string(),
-                file_enable = self.file_enable,
-                "Logger reconfigured:"
-            );
-        } else if self.file_enable {
-            warn!(
-                console_enable = self.console_enable,
-                file_level = self.file_level.to_string(),
-                file_path_prefix = self.file_path_prefix.as_str(),
-                "Logger reconfigured:"
-            );
         } else {
-            warn!(
-                console_enable = self.console_enable,
-                file_enable = self.file_enable,
-                "Logger reconfigured:"
-            );
+            LevelFilter::OFF
+        };
+
+        let file_filter = if logger_config.file.enable {
+            match LevelFilter::from_str(&logger_config.file.level) {
+                Ok(filter) => filter,
+                Err(err) => {
+                    let error_code = ErrorCode::LoggerLevelParseFail(err);
+                    error!("{}", error_code);
+                    return error_code;
+                }
+            }
+        } else {
+            LevelFilter::OFF
+        };
+
+        let new_console_level = console_filter.into_level().unwrap_or(self.console_level);
+        let new_file_level = file_filter.into_level().unwrap_or(self.file_level);
+
+        // Log before applying changes to ensure visibility under old filter levels
+        warn!(
+            console_enable = logger_config.console.enable,
+            console_level = new_console_level.to_string(),
+            file_enable = logger_config.file.enable,
+            file_level = new_file_level.to_string(),
+            file_path_prefix = self.file_path_prefix.as_str(),
+            utc_offset = self.utc_offset_str(),
+            "Logger reconfiguring:"
+        );
+
+        // Apply filter changes
+        if let Err(err) = self.console_level_reload_handle.reload(console_filter) {
+            let error_code = ErrorCode::LoggerLevelReloadFail(err);
+            error!("{}", error_code);
+            return error_code;
+        }
+        if let Err(err) = self.file_level_reload_handle.reload(file_filter) {
+            let error_code = ErrorCode::LoggerLevelReloadFail(err);
+            error!("{}", error_code);
+            return error_code;
         }
 
-        error_code
+        // Update state only after successful reload
+        self.console_enable = logger_config.console.enable;
+        self.console_level = new_console_level;
+        self.file_enable = logger_config.file.enable;
+        self.file_level = new_file_level;
+
+        ErrorCode::Success
     }
 }
 
