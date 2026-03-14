@@ -127,7 +127,7 @@ impl Logger {
     }
 
     fn log_status(&self, message: &str) {
-        info!(
+        trace!(
             console_enable = self.console_enable,
             console_level = self.console_level.to_string(),
             file_enable = self.file_enable,
@@ -211,6 +211,6 @@ impl Logger {
 impl Default for Logger {
     fn default() -> Self {
         let file_path_prefix = format!("log/{}.log", env!("CARGO_PKG_NAME")).replace('-', "_");
-        Self::new(Level::DEBUG, Level::DEBUG, file_path_prefix)
+        Self::new(Level::TRACE, Level::TRACE, file_path_prefix)
     }
 }
