@@ -193,6 +193,13 @@ impl Logger {
             "Logger reconfiguring:"
         );
 
+        // Save old console filter for potential rollback
+        let old_console_filter = if self.console_enable {
+            LevelFilter::from_level(self.console_level)
+        } else {
+            LevelFilter::OFF
+        };
+
         // Apply filter changes
         if let Err(err) = self.console_level_reload_handle.reload(console_filter) {
             let error_code = ErrorCode::LoggerLevelReloadFail(err);
@@ -200,6 +207,9 @@ impl Logger {
             return error_code;
         }
         if let Err(err) = self.file_level_reload_handle.reload(file_filter) {
+            if let Err(rollback_err) = self.console_level_reload_handle.reload(old_console_filter) {
+                warn!("Failed to rollback console filter: {}", rollback_err);
+            }
             let error_code = ErrorCode::LoggerLevelReloadFail(err);
             error!("{}", error_code);
             return error_code;
