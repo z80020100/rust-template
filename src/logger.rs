@@ -12,8 +12,7 @@ use tracing_appender::{non_blocking, rolling};
 use tracing_panic::panic_hook;
 use tracing_subscriber::fmt::time::OffsetTime;
 use tracing_subscriber::{
-    Layer, filter::LevelFilter, fmt, layer::SubscriberExt, reload,
-    util::SubscriberInitExt,
+    Layer, filter::LevelFilter, fmt, layer::SubscriberExt, reload, util::SubscriberInitExt,
 };
 
 // This library
