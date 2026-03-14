@@ -6,7 +6,7 @@ CROSS_CMD="cross"
 
 CROSS_REPO_URL="https://github.com/cross-rs/cross.git"
 CUSTOM_CROSS_REPO_URL="https://github.com/z80020100/cross.git"
-CUSTOM_CROSS_BRANCH="aarch64_host_platform_custom_image"
+CUSTOM_CROSS_BRANCH="rust-template"
 
 # Install dependencies
 function install_dependencies() {
