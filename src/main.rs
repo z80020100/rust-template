@@ -9,14 +9,14 @@ use rust_template::error::ErrorCode;
 use rust_template::logger::*; // debug, error, info, trace, warn
 use rust_template::threads::{self, *};
 
-async fn main_async() -> Result<(), ErrorCode> {
+async fn main_async(threads_config: &configs::ThreadsConfig) -> Result<(), ErrorCode> {
     trace!("Hello, world!");
     debug!("Hello, world!");
     info!("Hello, world!");
     warn!("Hello, world!");
     error!("Hello, world!");
     let (cmd_sender, _) = broadcast::channel::<ThreadCommand>(constant::BROADCAST_CHANNEL_CAPACITY);
-    threads::start_threads(cmd_sender).await
+    threads::start_threads(cmd_sender, threads_config).await
 }
 
 fn main() -> ErrorCode {
@@ -32,6 +32,7 @@ fn main() -> ErrorCode {
     let error_code = match configs::init() {
         Ok(main_config) => {
             debug!("Loaded config: \n{:#?}", main_config);
+            let threads_config = main_config.threads;
             let error_code = logger.reconfig(main_config.logger);
             if error_code != ErrorCode::Success {
                 return error_code;
@@ -41,13 +42,13 @@ fn main() -> ErrorCode {
                 .enable_all()
                 .build()
                 .unwrap()
-                .block_on(main_async())
+                .block_on(main_async(&threads_config))
             {
                 Ok(()) => ErrorCode::Success,
-                Err(err_code) => err_code,
+                Err(error_code) => error_code,
             }
         }
-        Err(err_code) => err_code,
+        Err(error_code) => error_code,
     };
     info!("Exit {}", app_info);
     error_code

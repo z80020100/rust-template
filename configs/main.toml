@@ -1,3 +1,7 @@
+# optional (default: shutdown_timeout_secs = 10)
+[threads]
+shutdown_timeout_secs = 10
+
 [logger]
 
 # available level: debug, error, info, trace, warn

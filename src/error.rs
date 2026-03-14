@@ -32,6 +32,8 @@ pub enum ErrorCode {
     LoggerLevelParseFail(#[from] ParseLevelFilterError),
     #[error("Failed to configure logger: {0}")]
     LoggerLevelReloadFail(#[from] TracingSubscriberReloadError),
+    #[error("Graceful shutdown timed out")]
+    ShutdownTimeout,
 }
 
 // https://doc.rust-lang.org/std/mem/fn.discriminant.html
