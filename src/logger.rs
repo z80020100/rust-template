@@ -12,7 +12,7 @@ use tracing_appender::{non_blocking, rolling};
 use tracing_panic::panic_hook;
 use tracing_subscriber::fmt::time::OffsetTime;
 use tracing_subscriber::{
-    Layer, Registry, filter::LevelFilter, fmt, layer::SubscriberExt, reload,
+    Layer, filter::LevelFilter, fmt, layer::SubscriberExt, reload,
     util::SubscriberInitExt,
 };
 
@@ -20,42 +20,30 @@ use tracing_subscriber::{
 use crate::configs::LoggerConfig;
 use crate::error::ErrorCode;
 
-// Type definitions
-// FIXME: clippy::type_complexity
-type ConsoleLevelReloadHandle = reload::Handle<
-    tracing::level_filters::LevelFilter,
-    tracing_subscriber::layer::Layered<
-        tracing_subscriber::filter::Filtered<
-            tracing_subscriber::fmt::Layer<
-                tracing_subscriber::Registry,
-                tracing_subscriber::fmt::format::DefaultFields,
-                tracing_subscriber::fmt::format::Format<
-                    tracing_subscriber::fmt::format::Full,
-                    tracing_subscriber::fmt::time::OffsetTime<
-                        std::vec::Vec<time::format_description::FormatItem<'static>>,
-                    >,
-                >,
-                tracing_appender::non_blocking::NonBlocking,
-            >,
-            tracing_subscriber::reload::Layer<
-                tracing::level_filters::LevelFilter,
-                tracing_subscriber::Registry,
-            >,
-            tracing_subscriber::Registry,
-        >,
-        tracing_subscriber::Registry,
-    >,
->;
-type FileLevelReloadHandle = reload::Handle<LevelFilter, Registry>;
+// Type-erased reload handle to avoid deeply nested generic types
+trait LevelFilterReloader: Send + Sync {
+    fn reload(&self, new_filter: LevelFilter) -> Result<(), reload::Error>;
+}
+
+impl<S> LevelFilterReloader for reload::Handle<LevelFilter, S>
+where
+    LevelFilter: Layer<S> + 'static,
+    S: tracing::Subscriber + 'static,
+{
+    fn reload(&self, new_filter: LevelFilter) -> Result<(), reload::Error> {
+        self.reload(new_filter)
+    }
+}
+
 pub struct Logger {
     pub guard: non_blocking::WorkerGuard,
     pub console_enable: bool,
     pub console_level: Level,
-    pub console_level_reload_handle: ConsoleLevelReloadHandle,
+    console_level_reload_handle: Box<dyn LevelFilterReloader>,
     pub file_enable: bool,
     pub file_level: Level,
     pub file_path_prefix: String,
-    pub file_level_reload_handle: FileLevelReloadHandle,
+    file_level_reload_handle: Box<dyn LevelFilterReloader>,
     pub utc_offset: UtcOffset,
 }
 
@@ -118,11 +106,11 @@ impl Logger {
             guard,
             console_enable: true,
             console_level,
-            console_level_reload_handle,
+            console_level_reload_handle: Box::new(console_level_reload_handle),
             file_enable: true,
             file_level,
             file_path_prefix,
-            file_level_reload_handle,
+            file_level_reload_handle: Box::new(file_level_reload_handle),
             utc_offset,
         };
         logger.log_status("Logger initialized:");
