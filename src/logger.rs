@@ -145,16 +145,10 @@ impl Logger {
         }
     }
 
-    pub fn reconfig(&mut self, logger_config: LoggerConfig) -> ErrorCode {
+    pub fn reconfig(&mut self, logger_config: LoggerConfig) -> Result<(), ErrorCode> {
         // Parse and validate new levels before making any changes
-        let console_filter = match Self::parse_level_filter(&logger_config.console) {
-            Ok(filter) => filter,
-            Err(error_code) => return error_code,
-        };
-        let file_filter = match Self::parse_level_filter(&logger_config.file) {
-            Ok(filter) => filter,
-            Err(error_code) => return error_code,
-        };
+        let console_filter = Self::parse_level_filter(&logger_config.console)?;
+        let file_filter = Self::parse_level_filter(&logger_config.file)?;
 
         let new_console_level = console_filter.into_level().unwrap_or(self.console_level);
         let new_file_level = file_filter.into_level().unwrap_or(self.file_level);
@@ -181,7 +175,7 @@ impl Logger {
         if let Err(err) = self.console_level_reload_handle.reload(console_filter) {
             let error_code = ErrorCode::LoggerLevelReloadFail(err);
             error!("{}", error_code);
-            return error_code;
+            return Err(error_code);
         }
         if let Err(err) = self.file_level_reload_handle.reload(file_filter) {
             if let Err(rollback_err) = self.console_level_reload_handle.reload(old_console_filter) {
@@ -189,7 +183,7 @@ impl Logger {
             }
             let error_code = ErrorCode::LoggerLevelReloadFail(err);
             error!("{}", error_code);
-            return error_code;
+            return Err(error_code);
         }
 
         // Update state only after successful reload
@@ -198,7 +192,7 @@ impl Logger {
         self.file_enable = logger_config.file.enable;
         self.file_level = new_file_level;
 
-        ErrorCode::Success
+        Ok(())
     }
 }
 

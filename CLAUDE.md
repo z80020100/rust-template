@@ -31,13 +31,13 @@ This is a Rust application template built on **Tokio** async runtime with struct
 2. Load config from `configs/main.toml`
 3. Reconfigure logger levels from loaded config
 4. Enter Tokio multi-threaded runtime → spawn threads → wait for completion
-5. Return `ErrorCode` as process exit code
+5. Map `Result` to `ExitCode` (success → 0, error → non-zero via `ErrorCode::as_u8()`)
 
 ### Module Overview
 
 - **`configs`** — Loads `MainConfig` from TOML via `config` + `serde`. Config path is relative to the working directory.
 - **`logger`** — Dual-output logger (stderr console with ANSI colors + daily rotating file in `log/`). Both output levels are independently reloadable at runtime via `reconfig()`. The `WorkerGuard` must be held alive in `main()`.
-- **`error`** — `ErrorCode` enum with `#[repr(u8)]` discriminants. Implements `Termination` trait so it can be returned directly from `main()`. Thread functions return `Result<(), ErrorCode>`.
+- **`error`** — `ErrorCode` enum (errors only, no `Success` variant). `as_u8()` maps each variant to a non-zero exit code. `main()` returns `ExitCode` by mapping `Ok(()) → SUCCESS`, `Err(e) → e.as_u8()`. Thread functions return `Result<(), ErrorCode>`.
 - **`threads`** — Thread management with `JoinSet`. Three demo threads: producer (sends i32 via MPSC), consumer (receives from MPSC), signal_handler (OS signals). All threads listen on a broadcast channel for `ThreadCommand::Stop`.
 - **`constant`** — Shared constants (e.g., broadcast channel capacity).
 
@@ -46,7 +46,7 @@ This is a Rust application template built on **Tokio** async runtime with struct
 - **Command channel**: `broadcast::channel<ThreadCommand>` — all threads subscribe; used to send `Stop`
 - **Data channel**: `mpsc::unbounded_channel<i32>` — producer→consumer
 - Each thread uses `tokio::select!` to concurrently await data and stop commands
-- If any thread returns a non-Success `ErrorCode`, remaining threads are stopped
+- If any thread returns an `Err(ErrorCode)`, remaining threads are stopped
 
 ### Design Conventions
 
