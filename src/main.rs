@@ -1,3 +1,6 @@
+// Standard
+use std::process::ExitCode;
+
 // crates.io
 use tokio::runtime;
 use tokio::sync::broadcast;
@@ -19,7 +22,7 @@ async fn main_async(threads_config: &configs::ThreadsConfig) -> Result<(), Error
     threads::start_threads(cmd_sender, threads_config).await
 }
 
-fn main() -> ErrorCode {
+fn main() -> ExitCode {
     /*
      * https://docs.rs/tracing-appender/latest/tracing_appender/non_blocking/struct.WorkerGuard.html
      * WorkerGuard should be assigned in the main function or whatever the entrypoint of the program is
@@ -29,27 +32,19 @@ fn main() -> ErrorCode {
     let _ground = logger.get_guard();
     let app_info = format!("{} v{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
     info!("Start {}", app_info);
-    let error_code = match configs::init() {
-        Ok(main_config) => {
-            debug!("Loaded config: \n{:#?}", main_config);
-            let threads_config = main_config.threads;
-            let error_code = logger.reconfig(main_config.logger);
-            if error_code != ErrorCode::Success {
-                return error_code;
-            }
-
-            match runtime::Builder::new_multi_thread()
-                .enable_all()
-                .build()
-                .unwrap()
-                .block_on(main_async(&threads_config))
-            {
-                Ok(()) => ErrorCode::Success,
-                Err(error_code) => error_code,
-            }
-        }
-        Err(error_code) => error_code,
-    };
+    let result = configs::init().and_then(|main_config| {
+        debug!("Loaded config: \n{:#?}", main_config);
+        let threads_config = main_config.threads;
+        logger.reconfig(main_config.logger)?;
+        runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(main_async(&threads_config))
+    });
     info!("Exit {}", app_info);
-    error_code
+    match result {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => ExitCode::from(e.as_u8()),
+    }
 }
