@@ -9,7 +9,7 @@ cargo build                # Debug build
 cargo build --release      # Release build
 cargo run                  # Run (reads configs/main.toml relative to working directory)
 cargo fmt --all -- --check # Check formatting
-cargo clippy               # Lint
+cargo clippy --all-targets # Lint (all targets including tests, benches, examples)
 cargo test                 # Run all tests
 cargo test <test_name>     # Run a single test
 
@@ -19,7 +19,7 @@ make cross TARGET=aarch64-unknown-linux-gnu  # Specify target
 make setup                              # Show setup instructions for cross env
 ```
 
-CI sets `RUSTFLAGS: -Dwarnings` — all warnings are treated as errors in CI.
+`.cargo/config.toml` sets `rustflags = ["-Dwarnings"]` — all warnings are treated as errors everywhere (local dev, CI, pre-commit hook).
 
 ## Architecture
 
