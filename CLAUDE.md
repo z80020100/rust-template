@@ -56,6 +56,10 @@ This is a Rust application template built on **Tokio** async runtime with struct
 
 Uses `cfg_if!` in `signal_handler.rs`: Unix signals (SIGTERM/SIGINT/SIGHUP) vs Windows control events (CTRL+C/CTRL+BREAK/CTRL+CLOSE).
 
+### Pre-commit Hook
+
+**cargo-husky** with `user-hooks` feature reads custom hooks from `.cargo-husky/hooks/` in the repo and installs them into `.git/hooks/` on first `cargo test`. The pre-commit hook runs fmt check, clippy, and tests.
+
 ### Cross-Compilation
 
 - `Cross.toml` defines custom Docker images per target (see `cross/docker/`)
