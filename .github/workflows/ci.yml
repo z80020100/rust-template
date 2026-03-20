@@ -27,10 +27,9 @@ jobs:
         uses: actions/checkout@v4
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
-      - name: Apt update on Ubuntu
-        run: sudo apt update
       - name: Install dependencies on Ubuntu
-        run: echo "CHANGE COMMAND HERE TO INSTALL DEPENDENCIES"
+        if: false  # TODO: Enable and configure when dependencies are needed
+        run: "sudo apt update && sudo apt install -y <packages>"
       - name: Update toolchain
         run: rustup update --no-self-update stable && rustup default stable
       - name: Run cargo fmt --all -- --check
@@ -53,10 +52,9 @@ jobs:
         uses: actions/checkout@v4
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
-      - name: Apt update on Ubuntu
-        run: sudo apt update
       - name: Install dependencies on Ubuntu
-        run: echo "CHANGE COMMAND HERE TO INSTALL DEPENDENCIES"
+        if: false  # TODO: Enable and configure when dependencies are needed
+        run: "sudo apt update && sudo apt install -y <packages>"
       - name: Update toolchain
         run: rustup update --no-self-update ${{ matrix.rust }} && rustup default ${{ matrix.rust }}
       - name: Run cargo build --release
@@ -73,7 +71,7 @@ jobs:
         rust: [stable]
         runs-on:
           - windows-latest
-          # - macos-latest
+          - macos-latest
     runs-on: ${{ matrix.runs-on }}
     steps:
       - name: Checkout
