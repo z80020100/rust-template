@@ -71,7 +71,7 @@ jobs:
         rust: [stable]
         runs-on:
           - windows-latest
-          # - macos-latest
+          - macos-latest
     runs-on: ${{ matrix.runs-on }}
     steps:
       - name: Checkout
