@@ -3,14 +3,16 @@ use std::future::Future;
 use std::time::Duration;
 
 // crates.io
+use config::Config;
 use parse_display::Display;
+use serde::Deserialize;
 use tokio::sync::{broadcast, mpsc};
 use tokio::task::{JoinError, JoinSet};
 
 // This library
-use crate::configs::ThreadsConfig;
-use crate::error::ErrorCode;
 use crate::logger::*; // debug, error, info, trace, warn
+pub mod error;
+use error::ThreadErrorCode;
 
 // Threads
 mod consumer;
@@ -30,6 +32,38 @@ pub enum ThreadCommand {
     Stop,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(default)]
+pub struct ThreadsConfig {
+    pub shutdown_timeout_secs: u64,
+}
+
+impl Default for ThreadsConfig {
+    fn default() -> Self {
+        Self {
+            shutdown_timeout_secs: 10,
+        }
+    }
+}
+
+impl ThreadsConfig {
+    pub fn load() -> Self {
+        Config::builder()
+            .add_source(config::File::with_name("configs/main.toml"))
+            .build()
+            .ok()
+            .and_then(|c| match c.get::<Self>("threads") {
+                Ok(config) => Some(config),
+                Err(config::ConfigError::NotFound(_)) => None,
+                Err(err) => {
+                    warn!("Failed to deserialize [threads] config, using defaults: {err}");
+                    None
+                }
+            })
+            .unwrap_or_default()
+    }
+}
+
 fn spawn_thread<F, R>(
     join_set: &mut JoinSet<R>,
     name: ThreadName, // TODO: set thread name if JoinSet::build_task becomes stable feature
@@ -46,7 +80,9 @@ fn spawn_thread<F, R>(
     });
 }
 
-fn handle_join_result(join_ret: Result<Result<(), ErrorCode>, JoinError>) -> Option<ErrorCode> {
+fn handle_join_result(
+    join_ret: Result<Result<(), ThreadErrorCode>, JoinError>,
+) -> Option<ThreadErrorCode> {
     match join_ret {
         Ok(Ok(())) => None,
         Ok(Err(error_code)) => {
@@ -58,7 +94,7 @@ fn handle_join_result(join_ret: Result<Result<(), ErrorCode>, JoinError>) -> Opt
             Some(error_code)
         }
         Err(err) => {
-            let error_code = ErrorCode::ThreadJoinFail(err);
+            let error_code = ThreadErrorCode::ThreadJoinFail(err);
             error!("{}", error_code);
             Some(error_code)
         }
@@ -68,7 +104,7 @@ fn handle_join_result(join_ret: Result<Result<(), ErrorCode>, JoinError>) -> Opt
 pub async fn start_threads(
     cmd_sender: broadcast::Sender<ThreadCommand>,
     threads_config: &ThreadsConfig,
-) -> Result<(), ErrorCode> {
+) -> Result<(), ThreadErrorCode> {
     let mut join_set = JoinSet::new();
     let (data_sender, data_receiver) = mpsc::unbounded_channel::<i32>();
     spawn_thread(
@@ -116,7 +152,7 @@ pub async fn start_threads(
         join_set.abort_all();
         while join_set.join_next().await.is_some() {}
         if first_error.is_none() {
-            first_error = Some(ErrorCode::ShutdownTimeout);
+            first_error = Some(ThreadErrorCode::ShutdownTimeout);
         }
     }
 
@@ -127,14 +163,16 @@ pub async fn start_threads(
     }
 }
 
-pub async fn stop_threads(cmd_sender: &broadcast::Sender<ThreadCommand>) -> Result<(), ErrorCode> {
+pub async fn stop_threads(
+    cmd_sender: &broadcast::Sender<ThreadCommand>,
+) -> Result<(), ThreadErrorCode> {
     match cmd_sender.send(ThreadCommand::Stop) {
         Ok(_) => {
             info!("Send command: {}", ThreadCommand::Stop);
             Ok(())
         }
         Err(err) => {
-            let error_code = ErrorCode::MpmcChanThrCmdSendFail(err);
+            let error_code = ThreadErrorCode::MpmcChanThrCmdSendFail(err);
             error!("{}", error_code);
             Err(error_code)
         }

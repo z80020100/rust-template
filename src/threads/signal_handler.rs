@@ -8,13 +8,13 @@ use tokio::sync::broadcast::{self, error::RecvError};
 
 // This library
 use super::ThreadCommand;
-use crate::error::ErrorCode;
+use super::error::ThreadErrorCode;
 use crate::logger::*; // debug, error, info, trace, warn
 
 pub async fn start(
     mut cmd_receiver: broadcast::Receiver<ThreadCommand>,
     cmd_sender: broadcast::Sender<ThreadCommand>,
-) -> Result<(), ErrorCode> {
+) -> Result<(), ThreadErrorCode> {
     let mut loop_running = true;
     while loop_running {
         tokio::select! {
@@ -40,7 +40,7 @@ pub async fn start(
 }
 
 // Intentionally kept per-module for independent customization in template usage
-fn cmd_handler(cmd: Result<ThreadCommand, RecvError>) -> Result<bool, ErrorCode> {
+fn cmd_handler(cmd: Result<ThreadCommand, RecvError>) -> Result<bool, ThreadErrorCode> {
     match cmd {
         Ok(cmd) => {
             info!("Receive command: {}", cmd);
@@ -50,7 +50,7 @@ fn cmd_handler(cmd: Result<ThreadCommand, RecvError>) -> Result<bool, ErrorCode>
             Ok(loop_running)
         }
         Err(err) => {
-            let error_code = ErrorCode::MpmcChanRecvFail(err);
+            let error_code = ThreadErrorCode::MpmcChanRecvFail(err);
             error!("{}", error_code);
             Err(error_code)
         }
