@@ -3,8 +3,12 @@
 
 use tauri::Manager;
 
+mod commands;
+
 fn main() {
     tauri::Builder::default()
+        .manage(commands::SimulationState::new())
+        .invoke_handler(tauri::generate_handler![commands::start, commands::stop])
         .setup(|app| {
             let window = app.get_webview_window("main").unwrap();
             let title: String = env!("CARGO_BIN_NAME")
