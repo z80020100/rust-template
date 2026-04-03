@@ -270,14 +270,17 @@
     </footer>
 
     <script>
+      const { invoke } = window.__TAURI__.core;
+      const { listen } = window.__TAURI__.event;
+
       const MAX_MESSAGES = 100; // Demo limit
       const $ = (id) => document.getElementById(id);
       const btn = $("toggle");
       const pLog = $("producer-log");
       const cLog = $("consumer-log");
+      const countEl = $("count");
       const cleared = new Set();
-      let timer = null;
-      let n = 0;
+      let running = false;
 
       function ts() {
         const d = new Date();
@@ -299,31 +302,34 @@
         log.scrollTop = log.scrollHeight;
       }
 
-      function start() {
-        timer = setInterval(() => {
-          n++;
-          append(pLog, `Produce: ${n}`);
-          setTimeout(() => {
-            append(cLog, `Consume: ${n}`);
-            $("count").textContent = `${n} messages`;
-          }, 80);
-        }, 1000);
+      listen("produce", (e) => {
+        append(pLog, `Produce: ${e.payload}`);
+      });
+
+      listen("consume", (e) => {
+        append(cLog, `Consume: ${e.payload}`);
+        countEl.textContent = `${e.payload} messages`;
+      });
+
+      async function start() {
+        await invoke("start");
+        running = true;
         btn.textContent = "Stop";
         btn.classList.add("running");
         $("dot").classList.add("active");
         $("status").textContent = "Running";
       }
 
-      function stop() {
-        clearInterval(timer);
-        timer = null;
+      async function stop() {
+        await invoke("stop");
+        running = false;
         btn.textContent = "Start";
         btn.classList.remove("running");
         $("dot").classList.remove("active");
         $("status").textContent = "Stopped";
       }
 
-      btn.addEventListener("click", () => (timer ? stop() : start()));
+      btn.addEventListener("click", () => (running ? stop() : start()));
     </script>
   </body>
 </html>
