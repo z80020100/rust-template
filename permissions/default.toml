@@ -1,0 +1,12 @@
+[default]
+permissions = ["allow-start", "allow-stop"]
+
+[[permission]]
+identifier = "allow-start"
+description = "Allow invoking the start command"
+commands.allow = ["start"]
+
+[[permission]]
+identifier = "allow-stop"
+description = "Allow invoking the stop command"
+commands.allow = ["stop"]
