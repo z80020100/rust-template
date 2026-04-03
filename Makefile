@@ -1,19 +1,17 @@
 PROJECT_NAME := rust-template
 TARGET := arm-unknown-linux-gnueabi
 
-target/debug/${PROJECT_NAME}: src/main.rs
+.PHONY: build
+build:
 	cargo build
 
-target/release/${PROJECT_NAME}: src/main.rs
-	cargo build $(RUSTPROFILE)
+.PHONY: release
+release:
+	cargo build --release
 
-release: target/release/${PROJECT_NAME}
-release: RUSTPROFILE := --release
-
-target/${TARGET}/release/${PROJECT_NAME}: src/main.rs
+.PHONY: cross
+cross:
 	cross build --target ${TARGET} --release
-
-cross: target/${TARGET}/release/${PROJECT_NAME}
 
 .PHONY: tauri-dev
 tauri-dev:
