@@ -6,6 +6,11 @@
     "frontendDist": "./assets/tauri"
   },
   "app": {
-    "windows": [{}]
+    "windows": [
+      {
+        "width": 800,
+        "height": 600
+      }
+    ]
   }
 }
