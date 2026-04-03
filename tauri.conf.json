@@ -6,6 +6,7 @@
     "frontendDist": "./assets/tauri"
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
         "width": 800,
