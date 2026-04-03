@@ -2,10 +2,39 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>frontend</title>
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <title>Rust Template Tauri</title>
   </head>
   <body>
-    <div id="app"></div>
+    <header>
+      <div class="brand">
+        <img src="/logo.png" alt="" />
+        <h1>Rust Template Tauri</h1>
+      </div>
+      <button id="toggle">Start</button>
+    </header>
+
+    <main>
+      <section class="panel producer">
+        <div class="panel-header">Producer</div>
+        <div class="log" id="producer-log">
+          <div class="empty-hint">Press Start to begin</div>
+        </div>
+      </section>
+      <section class="panel consumer">
+        <div class="panel-header">Consumer</div>
+        <div class="log" id="consumer-log">
+          <div class="empty-hint">Waiting for messages</div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <span class="dot" id="dot"></span>
+      <span id="status">Idle</span>
+      <span class="count" id="count"></span>
+    </footer>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
