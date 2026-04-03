@@ -37,4 +37,7 @@ fn main() {
     cargo_warn!("Target architecture: {:}", arch);
     cargo_warn!("Target OS: {:}", os);
     cargo_warn!("Binary location: {:}", bin_location);
+
+    #[cfg(feature = "tauri")]
+    tauri_build::build();
 }
