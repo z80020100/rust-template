@@ -24,6 +24,7 @@ tauri-build:
 .PHONY: clean
 clean:
 	cargo clean
+	rm -rf frontend/dist
 
 .PHONY: setup
 setup:
