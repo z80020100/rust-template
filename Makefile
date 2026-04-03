@@ -10,10 +10,18 @@ target/release/${PROJECT_NAME}: src/main.rs
 release: target/release/${PROJECT_NAME}
 release: RUSTPROFILE := --release
 
-/target/${TARGET}/release/${PROJECT_NAME}: src/main.rs
+target/${TARGET}/release/${PROJECT_NAME}: src/main.rs
 	cross build --target ${TARGET} --release
 
-cross: /target/${TARGET}/release/${PROJECT_NAME}
+cross: target/${TARGET}/release/${PROJECT_NAME}
+
+.PHONY: tauri-dev
+tauri-dev:
+	cargo tauri dev -f tauri -- --bin ${PROJECT_NAME}-tauri
+
+.PHONY: tauri-build
+tauri-build:
+	cargo tauri build
 
 .PHONY: clean
 clean:
