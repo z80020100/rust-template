@@ -1,1 +1,329 @@
-<!DOCTYPE html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      *,
+      *::before,
+      *::after {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      :root {
+        --cyan: #24c8eb;
+        --cyan-dim: rgba(36, 200, 235, 0.12);
+        --golden: #ffc332;
+        --golden-dim: rgba(255, 195, 50, 0.12);
+        --bg: #2a2a2a;
+        --bg-deep: #1e1e1e;
+        --bg-header: #222;
+        --border: #3a3a3a;
+        --text: #d4d4d4;
+        --text-muted: #666;
+        --green: #4ade80;
+        --mono:
+          ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+      }
+
+      html,
+      body {
+        height: 100%;
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--mono);
+        overflow: hidden;
+        user-select: none;
+      }
+
+      body {
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* ── Header ── */
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 20px;
+        background: var(--bg-header);
+        border-bottom: 1px solid var(--border);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .brand img {
+        width: 28px;
+        height: 28px;
+      }
+
+      .brand h1 {
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: 0.6px;
+        background: linear-gradient(135deg, var(--cyan) 30%, var(--golden) 70%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      #toggle {
+        padding: 5px 18px;
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        background: transparent;
+        color: var(--text-muted);
+        font: 600 12px var(--mono);
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      #toggle:hover {
+        border-color: var(--cyan);
+        color: var(--cyan);
+      }
+
+      #toggle.running {
+        border-color: var(--golden);
+        color: var(--golden);
+      }
+
+      #toggle.running:hover {
+        border-color: #ef4444;
+        color: #ef4444;
+      }
+
+      /* ── Panels ── */
+      main {
+        flex: 1;
+        display: flex;
+        min-height: 0;
+      }
+
+      .panel {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        background: var(--bg-deep);
+      }
+
+      .panel + .panel {
+        border-left: 1px solid var(--border);
+      }
+
+      .panel-header {
+        padding: 10px 16px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 2.5px;
+        text-transform: uppercase;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .producer .panel-header {
+        color: var(--cyan);
+        background: var(--cyan-dim);
+      }
+
+      .consumer .panel-header {
+        color: var(--golden);
+        background: var(--golden-dim);
+      }
+
+      /* ── Messages ── */
+      .log {
+        flex: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 6px 0;
+      }
+
+      .log::-webkit-scrollbar {
+        width: 5px;
+      }
+      .log::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .log::-webkit-scrollbar-thumb {
+        background: #444;
+        border-radius: 3px;
+      }
+      .log::-webkit-scrollbar-thumb:hover {
+        background: #555;
+      }
+
+      .msg {
+        padding: 3px 16px;
+        font-size: 12.5px;
+        line-height: 1.7;
+        white-space: nowrap;
+        animation: slide-in 0.25s ease-out;
+      }
+
+      .msg .ts {
+        color: var(--text-muted);
+        margin-right: 10px;
+      }
+      .producer .msg .val {
+        color: var(--cyan);
+      }
+      .consumer .msg .val {
+        color: var(--golden);
+      }
+
+      @keyframes slide-in {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .empty-hint {
+        padding: 24px 16px;
+        color: var(--text-muted);
+        font-size: 11px;
+        font-style: italic;
+        text-align: center;
+      }
+
+      /* ── Footer ── */
+      footer {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 20px;
+        font-size: 11px;
+        color: var(--text-muted);
+        background: var(--bg-header);
+        border-top: 1px solid var(--border);
+      }
+
+      .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--text-muted);
+        transition: all 0.3s;
+      }
+
+      .dot.active {
+        background: var(--green);
+        box-shadow: 0 0 6px var(--green);
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.4;
+        }
+      }
+
+      footer .count {
+        margin-left: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <img src="logo.png" alt="" />
+        <h1>Rust Template Tauri</h1>
+      </div>
+      <button id="toggle">Start</button>
+    </header>
+
+    <main>
+      <section class="panel producer">
+        <div class="panel-header">Producer</div>
+        <div class="log" id="producer-log">
+          <div class="empty-hint">Press Start to begin</div>
+        </div>
+      </section>
+      <section class="panel consumer">
+        <div class="panel-header">Consumer</div>
+        <div class="log" id="consumer-log">
+          <div class="empty-hint">Waiting for messages</div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <span class="dot" id="dot"></span>
+      <span id="status">Idle</span>
+      <span class="count" id="count"></span>
+    </footer>
+
+    <script>
+      const MAX_MESSAGES = 100; // Demo limit
+      const $ = (id) => document.getElementById(id);
+      const btn = $("toggle");
+      const pLog = $("producer-log");
+      const cLog = $("consumer-log");
+      const cleared = new Set();
+      let timer = null;
+      let n = 0;
+
+      function ts() {
+        const d = new Date();
+        return [d.getHours(), d.getMinutes(), d.getSeconds()]
+          .map((v) => String(v).padStart(2, "0"))
+          .join(":");
+      }
+
+      function append(log, text) {
+        if (!cleared.has(log)) {
+          log.innerHTML = "";
+          cleared.add(log);
+        }
+        const el = document.createElement("div");
+        el.className = "msg";
+        el.innerHTML = `<span class="ts">${ts()}</span><span class="val">${text}</span>`;
+        log.appendChild(el);
+        if (log.children.length > MAX_MESSAGES) log.firstChild.remove();
+        log.scrollTop = log.scrollHeight;
+      }
+
+      function start() {
+        timer = setInterval(() => {
+          n++;
+          append(pLog, `Produce: ${n}`);
+          setTimeout(() => {
+            append(cLog, `Consume: ${n}`);
+            $("count").textContent = `${n} messages`;
+          }, 80);
+        }, 1000);
+        btn.textContent = "Stop";
+        btn.classList.add("running");
+        $("dot").classList.add("active");
+        $("status").textContent = "Running";
+      }
+
+      function stop() {
+        clearInterval(timer);
+        timer = null;
+        btn.textContent = "Start";
+        btn.classList.remove("running");
+        $("dot").classList.remove("active");
+        $("status").textContent = "Stopped";
+      }
+
+      btn.addEventListener("click", () => (timer ? stop() : start()));
+    </script>
+  </body>
+</html>
