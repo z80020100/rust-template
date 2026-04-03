@@ -29,6 +29,11 @@ tracing-subscriber = { version = "0.3.22", features = ["local-time"] }
 [dev-dependencies]
 cargo-husky = { version = "1.5.0", default-features = false, features = ["user-hooks"] }
 
+[[bin]]
+name = "rust-template-tauri"
+path = "src/bin/tauri/main.rs"
+required-features = ["tauri"]
+
 [features]
 default = []
 tauri = ["dep:tauri", "dep:serde_json", "dep:tauri-build"]

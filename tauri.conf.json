@@ -1,0 +1,11 @@
+{
+  "productName": "rust-template-tauri",
+  "version": "0.1.0",
+  "identifier": "com.rust-template.tauri",
+  "build": {
+    "frontendDist": "./assets/tauri"
+  },
+  "app": {
+    "windows": [{}]
+  }
+}
