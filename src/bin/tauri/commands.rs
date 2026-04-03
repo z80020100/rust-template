@@ -2,16 +2,22 @@ use std::sync::Mutex;
 
 use tauri::{AppHandle, Emitter, State};
 use tokio::sync::{broadcast, mpsc};
+use tokio::task::JoinHandle;
 use tokio::time::{self, Duration};
 
+struct SimulationInner {
+    stop_sender: broadcast::Sender<()>,
+    handles: Vec<JoinHandle<()>>,
+}
+
 pub struct SimulationState {
-    stop_sender: Mutex<Option<broadcast::Sender<()>>>,
+    inner: Mutex<Option<SimulationInner>>,
 }
 
 impl SimulationState {
     pub fn new() -> Self {
         Self {
-            stop_sender: Mutex::new(None),
+            inner: Mutex::new(None),
         }
     }
 }
@@ -23,17 +29,14 @@ pub async fn start(app: AppHandle, state: State<'_, SimulationState>) -> Result<
     let mut stop_rx_c = stop_tx.subscribe();
     let (data_tx, mut data_rx) = mpsc::unbounded_channel::<i32>();
 
-    {
-        let mut guard = state.stop_sender.lock().unwrap();
-        if guard.is_some() {
-            return Err("Already running".into());
-        }
-        *guard = Some(stop_tx);
+    let mut guard = state.inner.lock().unwrap();
+    if guard.is_some() {
+        return Err("Already running".into());
     }
 
     // Producer
     let app_p = app.clone();
-    tokio::spawn(async move {
+    let producer = tokio::spawn(async move {
         let mut counter = 0;
         let mut interval = time::interval(Duration::from_secs(1));
         loop {
@@ -49,7 +52,7 @@ pub async fn start(app: AppHandle, state: State<'_, SimulationState>) -> Result<
     });
 
     // Consumer
-    tokio::spawn(async move {
+    let consumer = tokio::spawn(async move {
         loop {
             tokio::select! {
                 Some(counter) = data_rx.recv() => {
@@ -60,14 +63,27 @@ pub async fn start(app: AppHandle, state: State<'_, SimulationState>) -> Result<
         }
     });
 
+    *guard = Some(SimulationInner {
+        stop_sender: stop_tx,
+        handles: vec![producer, consumer],
+    });
+
     Ok(())
 }
 
 #[tauri::command]
 pub async fn stop(state: State<'_, SimulationState>) -> Result<(), String> {
-    let mut guard = state.stop_sender.lock().unwrap();
-    if let Some(sender) = guard.take() {
-        let _ = sender.send(());
+    let inner = {
+        let mut guard = state.inner.lock().unwrap();
+        guard.take()
+    };
+
+    if let Some(inner) = inner {
+        let _ = inner.stop_sender.send(());
+        for handle in inner.handles {
+            let _ = handle.await;
+        }
     }
+
     Ok(())
 }
