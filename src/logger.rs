@@ -5,7 +5,11 @@ use std::path::Path;
 use std::str::FromStr;
 
 // crates.io
+use serde::Serialize;
+#[cfg(all(feature = "tauri", debug_assertions))]
+use time::OffsetDateTime;
 use time::{UtcOffset, format_description};
+use tokio::sync::mpsc as tokio_mpsc;
 use tracing::Level;
 pub use tracing::{debug, error, info, trace, warn};
 use tracing_appender::{non_blocking, rolling};
@@ -34,6 +38,77 @@ where
     }
 }
 
+#[derive(Clone, Serialize)]
+pub struct LogRecord {
+    pub level: String,
+    pub message: String,
+    pub target: String,
+    pub timestamp: String,
+}
+
+#[cfg(all(feature = "tauri", debug_assertions))]
+struct MessageVisitor<'a>(&'a mut String);
+
+#[cfg(all(feature = "tauri", debug_assertions))]
+impl tracing::field::Visit for MessageVisitor<'_> {
+    fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
+        if field.name() == "message" {
+            use std::fmt::Write;
+            write!(self.0, "{:?}", value).ok();
+        }
+    }
+}
+
+#[cfg(all(feature = "tauri", debug_assertions))]
+struct EventLayer {
+    sender: tokio_mpsc::UnboundedSender<LogRecord>,
+    utc_offset: UtcOffset,
+}
+
+#[cfg(all(feature = "tauri", debug_assertions))]
+impl EventLayer {
+    fn new(sender: tokio_mpsc::UnboundedSender<LogRecord>, utc_offset: UtcOffset) -> Self {
+        Self { sender, utc_offset }
+    }
+
+    fn format_timestamp(&self) -> String {
+        let now = OffsetDateTime::now_utc().to_offset(self.utc_offset);
+        format!(
+            "{:04}-{:02}-{:02} {:02}:{:02}:{:02}.{:03}",
+            now.year(),
+            u8::from(now.month()),
+            now.day(),
+            now.hour(),
+            now.minute(),
+            now.second(),
+            now.millisecond()
+        )
+    }
+}
+
+#[cfg(all(feature = "tauri", debug_assertions))]
+impl<S> Layer<S> for EventLayer
+where
+    S: tracing::Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>,
+{
+    fn on_event(
+        &self,
+        event: &tracing::Event<'_>,
+        _ctx: tracing_subscriber::layer::Context<'_, S>,
+    ) {
+        let metadata = event.metadata();
+        let mut message = String::new();
+        event.record(&mut MessageVisitor(&mut message));
+        let record = LogRecord {
+            level: metadata.level().to_string(),
+            message,
+            target: metadata.target().to_string(),
+            timestamp: self.format_timestamp(),
+        };
+        let _ = self.sender.send(record);
+    }
+}
+
 pub struct Logger {
     pub guard: non_blocking::WorkerGuard,
     pub console_enable: bool,
@@ -44,6 +119,7 @@ pub struct Logger {
     pub file_path_prefix: String,
     file_level_reload_handle: Box<dyn LevelFilterReloader>,
     pub utc_offset: UtcOffset,
+    event_receiver: Option<tokio_mpsc::UnboundedReceiver<LogRecord>>,
 }
 
 impl Logger {
@@ -93,10 +169,26 @@ impl Logger {
             .with_writer(io::stderr)
             .with_filter(console_level_filter);
 
-        tracing_subscriber::Registry::default()
-            .with(file_layer)
-            .with(stdeer_layer)
-            .init();
+        #[cfg(all(feature = "tauri", debug_assertions))]
+        let event_receiver = {
+            let (tx, rx) = tokio_mpsc::unbounded_channel::<LogRecord>();
+            let event_layer = EventLayer::new(tx, utc_offset);
+            tracing_subscriber::Registry::default()
+                .with(file_layer)
+                .with(stdeer_layer)
+                .with(event_layer)
+                .init();
+            Some(rx)
+        };
+
+        #[cfg(not(all(feature = "tauri", debug_assertions)))]
+        let event_receiver: Option<tokio_mpsc::UnboundedReceiver<LogRecord>> = {
+            tracing_subscriber::Registry::default()
+                .with(file_layer)
+                .with(stdeer_layer)
+                .init();
+            None
+        };
 
         // https://docs.rs/tracing-panic/0.1.1/tracing_panic/fn.panic_hook.html
         panic::set_hook(Box::new(panic_hook));
@@ -111,6 +203,7 @@ impl Logger {
             file_path_prefix,
             file_level_reload_handle: Box::new(file_level_reload_handle),
             utc_offset,
+            event_receiver,
         };
         trace!(
             console_enable = logger.console_enable,
@@ -126,6 +219,10 @@ impl Logger {
 
     pub fn get_guard(&self) -> &non_blocking::WorkerGuard {
         &self.guard
+    }
+
+    pub fn take_event_receiver(&mut self) -> Option<tokio_mpsc::UnboundedReceiver<LogRecord>> {
+        self.event_receiver.take()
     }
 
     fn utc_offset_str(&self) -> String {
