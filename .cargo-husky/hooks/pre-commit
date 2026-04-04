@@ -11,4 +11,13 @@ cargo clippy --all-targets
 echo "Running cargo test..."
 cargo test
 
+echo "Running frontend format check..."
+npm run --prefix frontend format:check
+
+echo "Running frontend lint..."
+npm run --prefix frontend lint
+
+echo "Running frontend CSS lint..."
+npm run --prefix frontend lint:css
+
 echo "All pre-commit checks passed!"
