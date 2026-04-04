@@ -60,6 +60,30 @@ async function stop(): Promise<void> {
 btn.addEventListener("click", () => (running ? stop() : start()));
 
 if (import.meta.env.DEV) {
+  listen("log", (e) => {
+    const r = e.payload as {
+      level: string;
+      message: string;
+      target: string;
+      timestamp: string;
+    };
+    const msg = `[${r.timestamp}] [${r.target}] ${r.message}`;
+    switch (r.level) {
+      case "ERROR":
+        console.error(msg);
+        break;
+      case "WARN":
+        console.warn(msg);
+        break;
+      case "INFO":
+        console.info(msg);
+        break;
+      default:
+        console.debug(msg);
+        break;
+    }
+  });
+
   const devBtn = document.createElement("button");
   devBtn.id = "devtools";
   devBtn.textContent = "DevTools";

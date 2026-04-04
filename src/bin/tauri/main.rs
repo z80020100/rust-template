@@ -5,7 +5,7 @@
 use std::process::ExitCode;
 
 // crates.io
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 // Custom library
 use rust_template::configs;
@@ -23,6 +23,7 @@ fn main() -> ExitCode {
         .and_then(|main_config| {
             debug!("Loaded config: \n{:#?}", main_config);
             logger.reconfig(main_config.logger).map_err(|e| e.as_u8())?;
+            let event_rx = logger.take_event_receiver();
             tauri::Builder::default()
                 .manage(commands::SimulationState::new())
                 .invoke_handler(tauri::generate_handler![
@@ -31,7 +32,7 @@ fn main() -> ExitCode {
                     #[cfg(debug_assertions)]
                     commands::open_devtools
                 ])
-                .setup(|app| {
+                .setup(move |app| {
                     let window = app.get_webview_window("main").unwrap();
                     let title: String = env!("CARGO_BIN_NAME")
                         .split('-')
@@ -46,6 +47,14 @@ fn main() -> ExitCode {
                         .collect::<Vec<_>>()
                         .join(" ");
                     window.set_title(&title)?;
+                    if let Some(mut rx) = event_rx {
+                        let handle = app.handle().clone();
+                        tauri::async_runtime::spawn(async move {
+                            while let Some(record) = rx.recv().await {
+                                let _ = handle.emit("log", &record);
+                            }
+                        });
+                    }
                     Ok(())
                 })
                 .run(tauri::generate_context!())

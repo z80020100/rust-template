@@ -1,5 +1,6 @@
 use std::sync::Mutex;
 
+use rust_template::logger::info;
 #[cfg(debug_assertions)]
 use tauri::WebviewWindow;
 use tauri::{AppHandle, Emitter, State};
@@ -51,6 +52,7 @@ pub async fn start(app: AppHandle, state: State<'_, SimulationState>) -> Result<
             tokio::select! {
                 _ = interval.tick() => {
                     counter += 1;
+                    info!("Produce: {}", counter);
                     let _ = app_p.emit("produce", counter);
                     let _ = data_tx.send(counter);
                 }
@@ -64,6 +66,7 @@ pub async fn start(app: AppHandle, state: State<'_, SimulationState>) -> Result<
         loop {
             tokio::select! {
                 Some(counter) = data_rx.recv() => {
+                    info!("Consume: {}", counter);
                     let _ = app.emit("consume", counter);
                 }
                 _ = stop_rx_c.recv() => break,
