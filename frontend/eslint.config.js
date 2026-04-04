@@ -22,10 +22,7 @@ export default tseslint.config(
       "@html-eslint/element-newline": "off",
       "@html-eslint/closing-bracket-newline": "off",
       // Allow self-closing tags for void elements
-      "@html-eslint/require-closing-tags": [
-        "error",
-        { selfClosing: "always" },
-      ],
+      "@html-eslint/require-closing-tags": ["error", { selfClosing: "always" }],
     },
   },
 );

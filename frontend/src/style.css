@@ -8,9 +8,9 @@
 
 :root {
   --cyan: #24c8eb;
-  --cyan-dim: rgba(36, 200, 235, 0.12);
+  --cyan-dim: rgb(36 200 235 / 12%);
   --golden: #ffc332;
-  --golden-dim: rgba(255, 195, 50, 0.12);
+  --golden-dim: rgb(255 195 50 / 12%);
   --bg: #2a2a2a;
   --bg-deep: #1e1e1e;
   --bg-header: #222;
@@ -18,8 +18,7 @@
   --text: #d4d4d4;
   --text-muted: #666;
   --green: #4ade80;
-  --mono:
-    ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  --mono: ui-monospace, "SF Mono", "Cascadia Code", menlo, consolas, monospace;
 }
 
 html,
@@ -52,6 +51,7 @@ header {
   align-items: center;
   gap: 12px;
 }
+
 .brand img {
   width: 28px;
   height: 28px;
@@ -62,7 +62,6 @@ header {
   font-weight: 600;
   letter-spacing: 0.6px;
   background: linear-gradient(135deg, var(--cyan) 30%, var(--golden) 70%);
-  -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
@@ -136,21 +135,23 @@ main {
 /* ── Messages ── */
 .log {
   flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden auto;
   padding: 6px 0;
 }
 
 .log::-webkit-scrollbar {
   width: 5px;
 }
+
 .log::-webkit-scrollbar-track {
   background: transparent;
 }
+
 .log::-webkit-scrollbar-thumb {
   background: #444;
   border-radius: 3px;
 }
+
 .log::-webkit-scrollbar-thumb:hover {
   background: #555;
 }
@@ -167,9 +168,11 @@ main {
   color: var(--text-muted);
   margin-right: 10px;
 }
+
 .producer .msg .val {
   color: var(--cyan);
 }
+
 .consumer .msg .val {
   color: var(--golden);
 }
@@ -179,6 +182,7 @@ main {
     opacity: 0;
     transform: translateY(6px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -224,6 +228,7 @@ footer {
   100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.4;
   }
