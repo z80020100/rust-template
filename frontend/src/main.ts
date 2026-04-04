@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { emit, listen } from "@tauri-apps/api/event";
 import "./style.css";
 
 const MAX_MESSAGES = 100; // Demo limit
@@ -60,7 +60,7 @@ async function stop(): Promise<void> {
 btn.addEventListener("click", () => (running ? stop() : start()));
 
 if (import.meta.env.DEV) {
-  listen("log", (e) => {
+  await listen("log", (e) => {
     const r = e.payload as {
       level: string;
       message: string;
@@ -83,6 +83,7 @@ if (import.meta.env.DEV) {
         break;
     }
   });
+  await emit("log-ready");
 
   const devBtn = document.createElement("button");
   devBtn.id = "devtools";

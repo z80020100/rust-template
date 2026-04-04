@@ -5,7 +5,7 @@
 use std::process::ExitCode;
 
 // crates.io
-use tauri::{Emitter, Manager};
+use tauri::{Emitter, Listener, Manager};
 
 // Custom library
 use rust_template::configs;
@@ -49,7 +49,12 @@ fn main() -> ExitCode {
                     window.set_title(&title)?;
                     if let Some(mut rx) = event_rx {
                         let handle = app.handle().clone();
+                        let (tx, ready_rx) = tokio::sync::oneshot::channel::<()>();
+                        handle.once("log-ready", move |_| {
+                            let _ = tx.send(());
+                        });
                         tauri::async_runtime::spawn(async move {
+                            let _ = ready_rx.await;
                             while let Some(record) = rx.recv().await {
                                 let _ = handle.emit("log", &record);
                             }
