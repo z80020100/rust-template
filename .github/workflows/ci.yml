@@ -9,6 +9,8 @@ on:
       - "**.toml"
       - "**.sh"
       - ".cargo-husky/**"
+      - "frontend/**"
+      - "tauri.conf.json"
   pull_request:
     branches:
       - main
@@ -17,61 +19,123 @@ on:
       - "**.toml"
       - "**.sh"
       - ".cargo-husky/**"
+      - "frontend/**"
+      - "tauri.conf.json"
 
 jobs:
   test:
-    name: Test
+    name: Test (${{ matrix.variant }})
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
-      - name: Install dependencies on Ubuntu
-        if: false  # TODO: Enable and configure when dependencies are needed
-        run: "sudo apt update && sudo apt install -y <packages>"
-      - name: Update toolchain
-        run: rustup update --no-self-update stable && rustup default stable
-      - name: Run cargo fmt --all -- --check
-        run: cargo fmt --all -- --check
-      - name: Run cargo clippy --all-targets
-        run: cargo clippy --all-targets
-      - name: Run cargo test
-        run: cargo test
-
-  build-ubuntu:
-    name: Build on Ubuntu
     strategy:
       matrix:
-        rust: [stable]
-        runs-on:
-          - ubuntu-latest
-    runs-on: ${{ matrix.runs-on }}
+        include:
+          - variant: default
+            cargo-features: ""
+          - variant: tauri
+            cargo-features: "--features tauri"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
-      - name: Install dependencies on Ubuntu
+      - name: Install system dependencies
         if: false  # TODO: Enable and configure when dependencies are needed
         run: "sudo apt update && sudo apt install -y <packages>"
+      - name: Install system dependencies (Tauri)
+        if: matrix.variant == 'tauri'
+        run: >
+          sudo apt update && sudo apt install -y
+          libwebkit2gtk-4.1-dev build-essential libxdo-dev
+          libssl-dev libayatana-appindicator3-dev librsvg2-dev
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
       - name: Update toolchain
-        run: rustup update --no-self-update ${{ matrix.rust }} && rustup default ${{ matrix.rust }}
+        run: rustup update --no-self-update stable && rustup default stable
+      - name: Setup Node.js
+        if: matrix.variant == 'tauri'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend dependencies
+        if: matrix.variant == 'tauri'
+        run: npm ci --prefix frontend
+      - name: Check Rust formatting
+        run: cargo fmt --all -- --check
+      - name: Check frontend formatting
+        if: matrix.variant == 'tauri'
+        run: npm run --prefix frontend format:check
+      - name: Lint frontend TypeScript and HTML
+        if: matrix.variant == 'tauri'
+        run: npm run --prefix frontend lint
+      - name: Lint frontend CSS
+        if: matrix.variant == 'tauri'
+        run: npm run --prefix frontend lint:css
+      - name: Run cargo clippy
+        run: cargo clippy --all-targets ${{ matrix.cargo-features }}
+      - name: Run cargo test
+        run: cargo test ${{ matrix.cargo-features }}
+
+  build-ubuntu:
+    name: Build on Ubuntu (${{ matrix.variant }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - variant: default
+            cargo-features: ""
+          - variant: tauri
+            cargo-features: "--features tauri"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install system dependencies
+        if: false  # TODO: Enable and configure when dependencies are needed
+        run: "sudo apt update && sudo apt install -y <packages>"
+      - name: Install system dependencies (Tauri)
+        if: matrix.variant == 'tauri'
+        run: >
+          sudo apt update && sudo apt install -y
+          libwebkit2gtk-4.1-dev build-essential libxdo-dev
+          libssl-dev libayatana-appindicator3-dev librsvg2-dev
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+      - name: Update toolchain
+        run: rustup update --no-self-update stable && rustup default stable
+      - name: Setup Node.js
+        if: matrix.variant == 'tauri'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend dependencies
+        if: matrix.variant == 'tauri'
+        run: npm ci --prefix frontend
+      - name: Build frontend
+        if: matrix.variant == 'tauri'
+        run: npm run --prefix frontend build
       - name: Run cargo build --release
-        run: cargo build --release
+        run: cargo build --release ${{ matrix.cargo-features }}
       - name: Setup cross compilation environment
+        if: matrix.variant == 'default'
         run: bash scripts/envsetup.sh
       - name: Cross compile (aarch64)
+        if: matrix.variant == 'default'
         run: make cross TARGET=aarch64-unknown-linux-gnu
 
   build-others:
-    name: Build on other platforms
+    name: Build on ${{ matrix.runs-on }} (${{ matrix.variant }})
     strategy:
       matrix:
-        rust: [stable]
+        variant: [default, tauri]
         runs-on:
           - windows-latest
           - macos-latest
+        include:
+          - variant: default
+            cargo-features: ""
+          - variant: tauri
+            cargo-features: "--features tauri"
     runs-on: ${{ matrix.runs-on }}
     steps:
       - name: Checkout
@@ -79,6 +143,19 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
       - name: Update toolchain
-        run: rustup update --no-self-update ${{ matrix.rust }} && rustup default ${{ matrix.rust }}
+        run: rustup update --no-self-update stable && rustup default stable
+      - name: Setup Node.js
+        if: matrix.variant == 'tauri'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend dependencies
+        if: matrix.variant == 'tauri'
+        run: npm ci --prefix frontend
+      - name: Build frontend
+        if: matrix.variant == 'tauri'
+        run: npm run --prefix frontend build
       - name: Run cargo build --release
-        run: cargo build --release
+        run: cargo build --release ${{ matrix.cargo-features }}
