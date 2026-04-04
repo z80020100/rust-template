@@ -25,7 +25,12 @@ fn main() -> ExitCode {
             logger.reconfig(main_config.logger).map_err(|e| e.as_u8())?;
             tauri::Builder::default()
                 .manage(commands::SimulationState::new())
-                .invoke_handler(tauri::generate_handler![commands::start, commands::stop])
+                .invoke_handler(tauri::generate_handler![
+                    commands::start,
+                    commands::stop,
+                    #[cfg(debug_assertions)]
+                    commands::open_devtools
+                ])
                 .setup(|app| {
                     let window = app.get_webview_window("main").unwrap();
                     let title: String = env!("CARGO_BIN_NAME")

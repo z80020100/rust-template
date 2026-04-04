@@ -1,5 +1,7 @@
 use std::sync::Mutex;
 
+#[cfg(debug_assertions)]
+use tauri::WebviewWindow;
 use tauri::{AppHandle, Emitter, State};
 use tokio::sync::{broadcast, mpsc};
 use tokio::task::JoinHandle;
@@ -20,6 +22,12 @@ impl SimulationState {
             inner: Mutex::new(None),
         }
     }
+}
+
+#[cfg(debug_assertions)]
+#[tauri::command]
+pub fn open_devtools(window: WebviewWindow) {
+    window.open_devtools();
 }
 
 #[tauri::command]

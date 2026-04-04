@@ -58,3 +58,11 @@ async function stop(): Promise<void> {
 }
 
 btn.addEventListener("click", () => (running ? stop() : start()));
+
+if (import.meta.env.DEV) {
+  const devBtn = document.createElement("button");
+  devBtn.id = "devtools";
+  devBtn.textContent = "DevTools";
+  devBtn.addEventListener("click", () => invoke("open_devtools"));
+  document.querySelector("footer")!.appendChild(devBtn);
+}

@@ -1,5 +1,5 @@
 [default]
-permissions = ["allow-start", "allow-stop"]
+permissions = ["allow-start", "allow-stop", "allow-open-devtools"]
 
 [[permission]]
 identifier = "allow-start"
@@ -10,3 +10,8 @@ commands.allow = ["start"]
 identifier = "allow-stop"
 description = "Allow invoking the stop command"
 commands.allow = ["stop"]
+
+[[permission]]
+identifier = "allow-open-devtools"
+description = "Allow invoking the open_devtools command (debug builds only)"
+commands.allow = ["open_devtools"]
