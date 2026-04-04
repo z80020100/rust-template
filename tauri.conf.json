@@ -1,0 +1,19 @@
+{
+  "productName": "rust-template-tauri",
+  "version": "0.1.0",
+  "identifier": "com.rust-template.tauri",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devUrl": "http://localhost:5173",
+    "frontendDist": "./frontend/dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "width": 800,
+        "height": 600
+      }
+    ]
+  }
+}

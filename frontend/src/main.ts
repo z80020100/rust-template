@@ -1,0 +1,93 @@
+import { invoke } from "@tauri-apps/api/core";
+import { emit, listen } from "@tauri-apps/api/event";
+import "./style.css";
+
+const MAX_MESSAGES = 100; // Demo limit
+const btn = document.getElementById("toggle")!;
+const pLog = document.getElementById("producer-log")!;
+const cLog = document.getElementById("consumer-log")!;
+const countEl = document.getElementById("count")!;
+const cleared = new Set<HTMLElement>();
+let running = false;
+
+function ts(): string {
+  const d = new Date();
+  return [d.getHours(), d.getMinutes(), d.getSeconds()]
+    .map((v) => String(v).padStart(2, "0"))
+    .join(":");
+}
+
+function append(log: HTMLElement, text: string): void {
+  if (!cleared.has(log)) {
+    log.innerHTML = "";
+    cleared.add(log);
+  }
+  const el = document.createElement("div");
+  el.className = "msg";
+  el.innerHTML = `<span class="ts">${ts()}</span><span class="val">${text}</span>`;
+  log.appendChild(el);
+  if (log.children.length > MAX_MESSAGES) log.firstChild!.remove();
+  log.scrollTop = log.scrollHeight;
+}
+
+listen("produce", (e) => {
+  append(pLog, `Produce: ${e.payload}`);
+});
+
+listen("consume", (e) => {
+  append(cLog, `Consume: ${e.payload}`);
+  countEl.textContent = `${e.payload} messages`;
+});
+
+async function start(): Promise<void> {
+  await invoke("start");
+  running = true;
+  btn.textContent = "Stop";
+  btn.classList.add("running");
+  document.getElementById("dot")!.classList.add("active");
+  document.getElementById("status")!.textContent = "Running";
+}
+
+async function stop(): Promise<void> {
+  await invoke("stop");
+  running = false;
+  btn.textContent = "Start";
+  btn.classList.remove("running");
+  document.getElementById("dot")!.classList.remove("active");
+  document.getElementById("status")!.textContent = "Stopped";
+}
+
+btn.addEventListener("click", () => (running ? stop() : start()));
+
+if (import.meta.env.DEV) {
+  await listen("log", (e) => {
+    const r = e.payload as {
+      level: string;
+      message: string;
+      target: string;
+      timestamp: string;
+    };
+    const msg = `[${r.timestamp}] [${r.target}] ${r.message}`;
+    switch (r.level) {
+      case "ERROR":
+        console.error(msg);
+        break;
+      case "WARN":
+        console.warn(msg);
+        break;
+      case "INFO":
+        console.info(msg);
+        break;
+      default:
+        console.debug(msg);
+        break;
+    }
+  });
+  await emit("log-ready");
+
+  const devBtn = document.createElement("button");
+  devBtn.id = "devtools";
+  devBtn.textContent = "DevTools";
+  devBtn.addEventListener("click", () => invoke("open_devtools"));
+  document.querySelector("footer")!.appendChild(devBtn);
+}
